@@ -211,6 +211,16 @@ const router = createRouter({
             meta: { requiresUserAuth: true }
         },
         {
+            path: '/affiliate-hub',
+            name: 'affiliate-hub',
+            component: () => import('../views/affiliate/AffiliateHub.vue'),
+        },
+        {
+            path: '/commission-detail',
+            name: 'commission-detail',
+            component: () => import('../views/affiliate/CommissionDetail.vue'),
+        },
+        {
             path: '/orders/:order_no',
             name: 'order-detail',
             component: () => import('../views/OrderDetail.vue'),
