@@ -15,6 +15,7 @@ const paymentViewLoader: RouteComponentLoader = () => import('../views/Payment.v
 const blogViewLoader: RouteComponentLoader = () => import('../views/Blog.vue')
 const noticeViewLoader: RouteComponentLoader = () => import('../views/Notice.vue')
 const loginViewLoader: RouteComponentLoader = () => import('../views/auth/Login.vue')
+const affiliatePublicViewLoader: RouteComponentLoader = () => import('../views/AffiliatePublic.vue')
 
 const routeWarmupLoaders: RouteComponentLoader[] = [
     productsViewLoader,
@@ -219,6 +220,11 @@ const router = createRouter({
             path: '/commission-detail',
             name: 'commission-detail',
             component: () => import('../views/affiliate/CommissionDetail.vue'),
+        },
+        {
+            path: '/affiliate',
+            name: 'affiliate-public',
+            component: affiliatePublicViewLoader,
         },
         {
             path: '/orders/:order_no',

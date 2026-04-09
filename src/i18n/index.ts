@@ -396,6 +396,9 @@ const messages = {
             affiliate: {
                 title: '推广返利',
                 subtitle: '查看推广数据与佣金，并提交提现申请',
+                guestTitle: '游客可浏览说明',
+                guestDesc: '此页面支持游客浏览基础介绍。登录后可开通推广返利、查看佣金数据并提交提现申请。',
+                goLogin: '登录后继续',
                 notOpened: '你还没有开通推广返利，开通后可获得专属联盟ID与推广链接。',
                 openButton: '立即开通',
                 opening: '开通中...',
@@ -1398,6 +1401,9 @@ const messages = {
             affiliate: {
                 title: '推廣返利',
                 subtitle: '查看推廣數據與佣金，並提交提現申請',
+                guestTitle: '遊客可瀏覽說明',
+                guestDesc: '此頁面支援遊客瀏覽基礎介紹。登入後可開通推廣返利、查看佣金資料並提交提現申請。',
+                goLogin: '登入後繼續',
                 notOpened: '你尚未開通推廣返利，開通後可獲得專屬聯盟ID與推廣連結。',
                 openButton: '立即開通',
                 opening: '開通中...',
@@ -2361,6 +2367,9 @@ const messages = {
             affiliate: {
                 title: 'Affiliate Center',
                 subtitle: 'Track referrals and commissions, then submit withdraw requests',
+                guestTitle: 'Guest Access',
+                guestDesc: 'Guests can browse the affiliate introduction on this page. Log in to enable affiliate, view commission data, and submit withdraw requests.',
+                goLogin: 'Log in to continue',
                 notOpened: 'Affiliate is not enabled for your account yet. Open it to get your unique affiliate ID and promotion URL.',
                 openButton: 'Open Affiliate',
                 opening: 'Opening...',
