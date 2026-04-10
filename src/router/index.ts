@@ -208,21 +208,29 @@ const router = createRouter({
             path: '/me/affiliate',
             name: 'personal-center-affiliate',
             component: () => import('../views/affiliate/AffiliateHub.vue'),
+            meta: { requiresUserAuth: true }
         },
         {
             path: '/affiliate-hub',
             name: 'affiliate-hub',
             component: () => import('../views/affiliate/AffiliateHub.vue'),
+            meta: { requiresUserAuth: true }
         },
         {
             path: '/commission-detail',
             name: 'commission-detail',
             component: () => import('../views/affiliate/CommissionDetail.vue'),
+            meta: { requiresUserAuth: true }
         },
         {
             path: '/affiliate',
             name: 'affiliate-public',
             component: affiliatePublicViewLoader,
+        },
+        {
+            path: '/token-merchant',
+            name: 'token-merchant-guest',
+            component: () => import('../views/affiliate/TokenMerchantGuest.vue'),
         },
         {
             path: '/orders/:order_no',
