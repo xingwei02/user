@@ -233,6 +233,11 @@ const router = createRouter({
             component: () => import('../views/affiliate/TokenMerchantGuest.vue'),
         },
         {
+            path: '/token-merchant-v2',
+            name: 'token-merchant-guest-v2',
+            component: () => import('../views/affiliate/TokenMerchantGuestV2.vue'),
+        },
+        {
             path: '/orders/:order_no',
             name: 'order-detail',
             component: () => import('../views/OrderDetail.vue'),
