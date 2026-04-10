@@ -1,5 +1,5 @@
 <template>
-  <div class="affiliate-home-page container mx-auto px-4 py-6 max-w-6xl">
+  <div class="affiliate-home-page container mx-auto max-w-6xl px-4 pt-24 pb-8 md:pt-28">
     <section class="rounded-2xl p-6 text-white shadow-xl bg-gradient-to-r from-slate-900 via-blue-900 to-blue-700">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

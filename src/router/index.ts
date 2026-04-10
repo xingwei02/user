@@ -207,9 +207,7 @@ const router = createRouter({
         {
             path: '/me/affiliate',
             name: 'personal-center-affiliate',
-            component: () => import('../views/PersonalCenter.vue'),
-            props: { section: 'affiliate' },
-            meta: { requiresUserAuth: true }
+            component: () => import('../views/affiliate/AffiliateHub.vue'),
         },
         {
             path: '/affiliate-hub',
