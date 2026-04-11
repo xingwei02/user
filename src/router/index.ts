@@ -223,6 +223,18 @@ const router = createRouter({
             meta: { requiresUserAuth: true }
         },
         {
+            path: '/my-promotion',
+            name: 'my-promotion',
+            component: () => import('../views/promotion/MyPromotion.vue'),
+            meta: { requiresUserAuth: true }
+        },
+        {
+            path: '/promotion-link',
+            name: 'promotion-link',
+            component: () => import('../views/promotion/PromotionLink.vue'),
+            meta: { requiresUserAuth: true }
+        },
+        {
             path: '/affiliate',
             name: 'affiliate-public',
             component: affiliatePublicViewLoader,
