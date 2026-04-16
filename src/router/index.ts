@@ -322,6 +322,11 @@ const router = createRouter({
             meta: { userGuest: true }
         },
         {
+            path: '/zhengye',
+            name: 'zhengye',
+            component: () => import('../views/zhengye.vue')
+        },
+        {
             path: '/:pathMatch(.*)*',
             name: 'not-found',
             component: () => import('../views/NotFound.vue'),
