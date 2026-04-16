@@ -1,4 +1,5 @@
 import { getImageUrl } from './image'
+import { resolveApiBaseUrl } from './api-base'
 
 /**
  * 将 HTML 内容中的图片路径转换为显示用的绝对路径
@@ -21,7 +22,7 @@ export function processHtmlForDisplay(html: string): string {
 export function processHtmlForStorage(html: string): string {
     if (!html) return ''
 
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+    const apiBaseUrl = resolveApiBaseUrl()
     let apiHost = ''
     try {
         if (apiBaseUrl) {

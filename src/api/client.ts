@@ -1,4 +1,5 @@
 import i18n from '../i18n'
+import { resolveApiBaseUrl } from '../utils/api-base'
 
 export const t = (key: string, params?: Record<string, any>) =>
     (params ? i18n.global.t(key, params) : i18n.global.t(key)) as string
@@ -15,7 +16,7 @@ export interface ApiResponse<T = any> {
     }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+const API_BASE_URL = resolveApiBaseUrl()
 const API_PREFIX = '/api/v1'
 
 interface RequestOptions {
