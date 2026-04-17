@@ -28,5 +28,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: 
-            xingwei02/dujiao-next-user:latest-userv9
+            xingwei02/dujiao-next-user:latest-userv10
         
