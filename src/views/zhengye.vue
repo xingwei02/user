@@ -121,7 +121,7 @@
               <h3>这套体系其实很简单</h3>
               <p>你把链接发给别人。</p>
               <p>别人通过你的链接下单，你赚钱。</p>
-              <p>你带来的伙伴默认从15.00%开始，后续升到哪一档、每档返多少，都在「伙伴等级返佣」里设置。</p>
+              <p>你带来的伙伴默认从{{ formatPercent(levels.entry_rate) }}开始，后续升到哪一档、每档返多少，都在「伙伴等级返佣」里设置。</p>
               <p>你赚得越多，达到目标后，能拿到的比例就越高。</p>
             </div>
 
@@ -383,7 +383,7 @@
             </div>
             <div class="card">
               <div class="label">当前折扣比例</div>
-              <div class="value">{{ formatPercent(stats.discount_rate) }}</div>
+              <div class="value">{{ formatPercent(normalizedDiscountRate) }}</div>
             </div>
             <div class="card">
               <div class="label">已打款结算</div>
@@ -1950,8 +1950,8 @@ const removeLevel = (id: number) => {
 const handleLevelsSave = async (payload: LevelsData) => {
   try {
     savingLevels.value = true
-    await zhengyeAPI.saveLevels(payload)
-    levels.value = payload
+    const saved = await zhengyeAPI.saveLevels(payload)
+    levels.value = saved
     window.alert('伙伴等级返佣已保存')
   } catch (error) {
     console.error('保存 levels 失败:', error)
@@ -2025,11 +2025,12 @@ const savePartnerRate = async (partnerId: number) => {
   try {
     savingPartnerRateId.value = partnerId
     const nextRate = Number(partnerRateDrafts.value[partnerId] ?? 0)
-    await zhengyeAPI.updatePartnerRate(partnerId, nextRate)
-    partners.value = partners.value.map(item => (item.id === partnerId ? { ...item, rate: nextRate } : item))
+    const response = await zhengyeAPI.updatePartnerRate(partnerId, nextRate)
+    const appliedRate = Number(response?.rate ?? nextRate)
+    partners.value = partners.value.map(item => (item.id === partnerId ? { ...item, rate: appliedRate } : item))
     partnerRateDrafts.value = {
       ...partnerRateDrafts.value,
-      [partnerId]: nextRate,
+      [partnerId]: appliedRate,
     }
     window.alert('伙伴比例已保存')
   } catch (error) {

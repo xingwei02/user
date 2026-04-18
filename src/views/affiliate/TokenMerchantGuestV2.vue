@@ -339,12 +339,10 @@ onMounted(async () => {
       return
     }
     if (userAuthStore.isTokenMerchant) {
-      await router.replace('/zhengye')
       return
     }
     const code = getAffiliateCode()
     if (!code) {
-      await router.replace('/')
       return
     }
     const response = await affiliateAPI.getPublicContext(code)

@@ -326,9 +326,16 @@ const router = createRouter({
 })
 
 const canAccessTokenMerchantGuestPage = async () => {
+    const userAuthStore = useUserAuthStore()
+    if (!userAuthStore.isAuthenticated) {
+        return false
+    }
+    if (userAuthStore.isTokenMerchant) {
+        return true
+    }
     const code = getAffiliateCode()
     if (!code) {
-        return false
+        return true
     }
     try {
         const response = await affiliateAPI.getPublicContext(code)
@@ -352,10 +359,6 @@ router.beforeEach(async (to, _from, next) => {
     if (to.name === 'token-merchant-guest-v2') {
         if (!userAuthStore.isAuthenticated) {
             next('/')
-            return
-        }
-        if (userAuthStore.isTokenMerchant) {
-            next('/zhengye')
             return
         }
         const allowed = await canAccessTokenMerchantGuestPage()
