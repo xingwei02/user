@@ -28,7 +28,7 @@
         </div>
       </div>
       <div class="mt-10">
-        <router-link to="/auth/register?redirect=%2Faffiliate-hub" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90">{{ t('tm.hero.cta') }}</router-link>
+        <button type="button" @click="handlePrimaryAction" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">{{ primaryActionLabel }}</button>
       </div>
     </section>
 
@@ -51,7 +51,7 @@
         <p class="text-[#b8924a] font-semibold">{{ t('tm.what.cta2') }}</p>
       </div>
       <div class="mt-8">
-        <router-link to="/auth/register?redirect=%2Faffiliate-hub" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90">{{ t('tm.what.btn') }}</router-link>
+        <button type="button" @click="handlePrimaryAction" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">{{ primaryActionLabel }}</button>
       </div>
     </section>
 
@@ -134,7 +134,7 @@
           <ul class="text-sm text-[#555] space-y-1 mb-5">
             <li v-for="item in personalFeature" :key="item" class="flex items-center gap-2"><span class="text-blue-400">✓</span>{{ item }}</li>
           </ul>
-          <router-link to="/auth/register?redirect=%2Faffiliate-hub" class="block text-center bg-blue-500 hover:bg-blue-600 text-white rounded-xl py-3 text-sm font-semibold">{{ t('tm.mode.personal.btn') }}</router-link>
+          <button type="button" @click="handlePrimaryAction" class="block w-full text-center bg-blue-500 hover:bg-blue-600 text-white rounded-xl py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60">{{ primaryActionLabel }}</button>
         </div>
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-[#e8d5a8]">
           <div class="flex items-center gap-3 mb-4">
@@ -149,7 +149,7 @@
           <ul class="text-sm text-[#555] space-y-1 mb-5">
             <li v-for="item in enterpriseFeature" :key="item" class="flex items-center gap-2"><span class="text-[#b8924a]">☆</span>{{ item }}</li>
           </ul>
-          <router-link to="/auth/register?redirect=%2Faffiliate-hub" class="block text-center bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white rounded-xl py-3 text-sm font-semibold">{{ t('tm.mode.enterprise.btn') }}</router-link>
+          <button type="button" @click="handlePrimaryAction" class="block w-full text-center bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white rounded-xl py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60">{{ primaryActionLabel }}</button>
         </div>
       </div>
       <p class="mt-4 text-xs text-[#aaa]">{{ t('tm.mode.tip') }}</p>
@@ -182,7 +182,7 @@
       <p class="mt-6 text-[#b8924a] font-semibold text-sm">{{ t('tm.steps.footer') }}</p>
       <p class="text-sm text-[#555]">{{ t('tm.steps.footer2') }}</p>
       <div class="mt-6">
-        <router-link to="/auth/register?redirect=%2Faffiliate-hub" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90">{{ t('tm.steps.btn') }}</router-link>
+        <button type="button" @click="handlePrimaryAction" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">{{ primaryActionLabel }}</button>
       </div>
     </section>
 
@@ -224,7 +224,7 @@
         <p class="mt-3 text-xs text-[#ccc] text-center">{{ t('tm.calc.disclaimer') }}</p>
       </div>
       <div class="mt-8">
-        <router-link to="/auth/register?redirect=%2Faffiliate-hub" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90">{{ t('tm.calc.btn') }}</router-link>
+        <button type="button" @click="handlePrimaryAction" class="inline-block rounded-full bg-gradient-to-r from-[#b8924a] to-[#c9a55a] text-white font-semibold px-10 py-3 text-base shadow-md hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">{{ primaryActionLabel }}</button>
       </div>
     </section>
 
@@ -232,10 +232,52 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { affiliateAPI } from '../../api'
+import { useUserAuthStore } from '../../stores/userAuth'
+import { getAffiliateCode } from '../../utils/affiliate'
 
 const { t } = useI18n()
+const router = useRouter()
+const route = useRoute()
+const userAuthStore = useUserAuthStore()
+const opening = ref(false)
+const pageChecking = ref(true)
+
+const primaryActionLabel = computed(() => {
+  if (opening.value) return '提交中...'
+  if (userAuthStore.isAuthenticated) {
+    return userAuthStore.isTokenMerchant ? '进入正业中心' : '立即开通 Token 商'
+  }
+  return t('tm.hero.cta')
+})
+
+const handlePrimaryAction = async () => {
+  if (pageChecking.value) return
+  if (opening.value) return
+  if (!userAuthStore.isAuthenticated) {
+    await router.push('/auth/register?redirect=%2Ftoken-merchant-v2')
+    return
+  }
+  if (userAuthStore.isTokenMerchant) {
+    await router.push('/zhengye')
+    return
+  }
+  opening.value = true
+  try {
+    const inviterCode = typeof route.query.inviter_code === 'string' ? route.query.inviter_code : ''
+    await affiliateAPI.open(inviterCode ? { inviter_code: inviterCode } : undefined)
+    userAuthStore.syncUserProfile({ is_token_merchant: true, token_merchant_at: new Date().toISOString() })
+    await router.push('/zhengye')
+  } catch (error) {
+    console.error('open token merchant failed', error)
+    window.alert('开通失败，请稍后重试')
+  } finally {
+    opening.value = false
+  }
+}
 
 const monthlyReferrals = ref(5)
 
@@ -289,4 +331,32 @@ const personalFit = computed(() => [t('tm.mode.personal.fit1'), t('tm.mode.perso
 const personalFeature = computed(() => [t('tm.mode.personal.feat1'), t('tm.mode.personal.feat2'), t('tm.mode.personal.feat3'), t('tm.mode.personal.feat4')])
 const enterpriseFit = computed(() => [t('tm.mode.enterprise.fit1'), t('tm.mode.enterprise.fit2'), t('tm.mode.enterprise.fit3'), t('tm.mode.enterprise.fit4')])
 const enterpriseFeature = computed(() => [t('tm.mode.enterprise.feat1'), t('tm.mode.enterprise.feat2'), t('tm.mode.enterprise.feat3'), t('tm.mode.enterprise.feat4')])
+
+onMounted(async () => {
+  try {
+    if (!userAuthStore.isAuthenticated) {
+      await router.replace('/')
+      return
+    }
+    if (userAuthStore.isTokenMerchant) {
+      await router.replace('/zhengye')
+      return
+    }
+    const code = getAffiliateCode()
+    if (!code) {
+      await router.replace('/')
+      return
+    }
+    const response = await affiliateAPI.getPublicContext(code)
+    if (!response?.data?.data?.merchant_page_enabled) {
+      await router.replace('/')
+      return
+    }
+  } catch {
+    await router.replace('/')
+    return
+  } finally {
+    pageChecking.value = false
+  }
+})
 </script>

@@ -21,6 +21,7 @@ export const useUserAuthStore = defineStore('user-auth', () => {
     const loading = ref(false)
 
     const isAuthenticated = computed(() => !!token.value)
+    const isTokenMerchant = computed(() => !!user.value?.is_token_merchant)
 
     const setToken = (newToken: string) => {
         token.value = newToken
@@ -121,6 +122,8 @@ export const useUserAuthStore = defineStore('user-auth', () => {
         nickname?: string
         locale?: string
         email_verified_at?: string | null
+        is_token_merchant?: boolean
+        token_merchant_at?: string | null
         email_change_mode?: 'bind_only' | 'change_with_old_and_new'
         password_change_mode?: 'set_without_old' | 'change_with_old'
     }) => {
@@ -138,6 +141,7 @@ export const useUserAuthStore = defineStore('user-auth', () => {
         user,
         loading,
         isAuthenticated,
+        isTokenMerchant,
         sendVerifyCode,
         register,
         login,

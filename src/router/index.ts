@@ -2,7 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserAuthStore } from '../stores/userAuth'
 import { useAppStore } from '../stores/app'
 import { useTelegramMiniAppStore } from '../stores/telegramMiniApp'
+import { affiliateAPI } from '../api'
 import { captureAffiliateFromRoute } from '../utils/affiliate'
+import { getAffiliateCode } from '../utils/affiliate'
 
 type RouteComponentLoader = () => Promise<unknown>
 
@@ -223,18 +225,6 @@ const router = createRouter({
             meta: { requiresUserAuth: true }
         },
         {
-            path: '/my-promotion',
-            name: 'my-promotion',
-            component: () => import('../views/promotion/MyPromotion.vue'),
-            meta: { requiresUserAuth: true }
-        },
-        {
-            path: '/promotion-link',
-            name: 'promotion-link',
-            component: () => import('../views/promotion/PromotionLink.vue'),
-            meta: { requiresUserAuth: true }
-        },
-        {
             path: '/affiliate',
             name: 'affiliate-public',
             component: affiliatePublicViewLoader,
@@ -324,7 +314,8 @@ const router = createRouter({
         {
             path: '/zhengye',
             name: 'zhengye',
-            component: () => import('../views/zhengye.vue')
+            component: () => import('../views/zhengye.vue'),
+            meta: { requiresUserAuth: true, requiresTokenMerchant: true }
         },
         {
             path: '/:pathMatch(.*)*',
@@ -333,6 +324,19 @@ const router = createRouter({
         },
     ],
 })
+
+const canAccessTokenMerchantGuestPage = async () => {
+    const code = getAffiliateCode()
+    if (!code) {
+        return false
+    }
+    try {
+        const response = await affiliateAPI.getPublicContext(code)
+        return !!response?.data?.data?.merchant_page_enabled
+    } catch {
+        return false
+    }
+}
 
 // Navigation Guard
 router.beforeEach(async (to, _from, next) => {
@@ -345,10 +349,31 @@ router.beforeEach(async (to, _from, next) => {
         await appStore.loadConfig()
     }
 
+    if (to.name === 'token-merchant-guest-v2') {
+        if (!userAuthStore.isAuthenticated) {
+            next('/')
+            return
+        }
+        if (userAuthStore.isTokenMerchant) {
+            next('/zhengye')
+            return
+        }
+        const allowed = await canAccessTokenMerchantGuestPage()
+        if (allowed) {
+            next()
+        } else {
+            next('/')
+        }
+        return
+    }
+
     if (to.meta.requiresUserAuth) {
         if (!userAuthStore.isAuthenticated) {
             const redirect = encodeURIComponent(to.fullPath)
             next(`/auth/login?redirect=${redirect}`)
+        } else if (to.meta.requiresTokenMerchant && !userAuthStore.isTokenMerchant) {
+            const allowed = await canAccessTokenMerchantGuestPage()
+            next(allowed ? '/token-merchant-v2' : '/')
         } else {
             next()
         }

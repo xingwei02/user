@@ -66,6 +66,7 @@ const messages = {
             blog: '博客',
             notice: '公告',
             about: '关于',
+            promotion: '推广中心',
         },
         footer: {
             description: '专业的在线工作室，为您提供优质的产品和服务。',
@@ -1044,6 +1045,7 @@ const messages = {
             blog: '部落格',
             notice: '公告',
             about: '關於',
+            promotion: '推廣中心',
         },
         footer: {
             description: '專業的線上工作室，為您提供優質的產品和服務。',
@@ -2022,6 +2024,7 @@ const messages = {
             blog: 'Blog',
             notice: 'Notice',
             about: 'About',
+            promotion: 'Promotion Center',
         },
         footer: {
             description: 'Professional online studio providing quality products and services.',

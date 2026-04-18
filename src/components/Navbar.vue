@@ -84,7 +84,7 @@
 
         <!-- Language Switcher (Desktop) -->
         <div class="relative group/lang lang-switcher hidden lg:block">
-          <button @click="toggleLangMenu"
+          <button type="button" @click.stop="toggleLangMenu"
             class="theme-nav-link space-x-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -94,8 +94,8 @@
           </button>
 
           <!-- Dropdown -->
-          <div v-if="showLangMenu"
-            class="absolute right-0 mt-2 w-40 theme-panel-strong border rounded-xl shadow-2xl py-2 z-50 overflow-hidden backdrop-blur-xl">
+          <div v-if="showLangMenu" @click.stop
+            class="absolute right-0 top-full mt-2 w-44 theme-panel-strong border rounded-xl shadow-2xl py-2 z-[80] overflow-hidden backdrop-blur-xl">
             <div class="px-2 pb-2 mb-2 border-b border-gray-100 dark:border-white/5">
               <span class="text-xs theme-text-muted font-mono px-2">{{ t('navbar.selectLanguage') }}</span>
             </div>
@@ -326,8 +326,6 @@ const menuItems = computed<NavItem[]>(() => {
   }
   items.push(...buildBuiltinNavItems())
   items.push(...buildCustomNavItems())
-  // Add promotion plan menu
-  items.push({ key: 'promotion', path: '/my-promotion', label: 'nav.promotion', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', type: 'route', target: '_self' })
   return items
 })
 
@@ -363,6 +361,7 @@ const toggleMobileMenu = () => {
 
 const toggleLangMenu = () => {
   showLangMenu.value = !showLangMenu.value
+  if (showLangMenu.value) showMobileMenu.value = false
 }
 
 const changeLanguage = (langCode: string) => {

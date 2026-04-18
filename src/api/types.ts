@@ -3,6 +3,8 @@ export interface UserProfileData {
     email: string
     nickname: string
     email_verified_at?: string | null
+    is_token_merchant?: boolean
+    token_merchant_at?: string | null
     locale: string
     member_level_id?: number
     total_recharged?: number | string

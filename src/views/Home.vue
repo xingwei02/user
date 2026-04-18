@@ -352,6 +352,30 @@
     </template>
     </template>
 
+    <template v-if="groupSectionVisible">
+      <hr class="theme-section-divider mx-4 md:mx-auto md:max-w-6xl" />
+
+      <section class="relative z-10 py-12">
+        <div class="container mx-auto px-4">
+          <div class="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <h2 class="theme-section-heading text-[1.7rem]">扫码加入官方群</h2>
+              <p v-if="affiliateGroup.notice" class="mt-1 text-sm theme-text-secondary">{{ affiliateGroup.notice }}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div v-if="affiliateGroup.group_image_url" class="rounded-xl border theme-panel p-5">
+              <img :src="getImageUrl(affiliateGroup.group_image_url)" alt="官方群二维码" class="mx-auto max-h-80 w-auto rounded-xl object-contain" />
+            </div>
+            <div v-if="affiliateGroup.parent_group_image_url" class="rounded-xl border theme-panel p-5">
+              <img :src="getImageUrl(affiliateGroup.parent_group_image_url)" alt="官方群引导图" class="mx-auto max-h-80 w-auto rounded-xl object-contain" />
+            </div>
+          </div>
+        </div>
+      </section>
+    </template>
+
     <ProductQuickBuy
       v-if="quickBuyProduct"
       :product="quickBuyProduct"
@@ -365,7 +389,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { postAPI, productAPI } from '../api'
+import { affiliateAPI, postAPI, productAPI } from '../api'
 import { getImageUrl } from '../utils/image'
 import { useLocalized } from '../composables/useProduct'
 import { useBannerCarousel } from '../composables/useBannerCarousel'
@@ -377,6 +401,7 @@ import ProductListItem from '../components/ProductListItem.vue'
 import ProductQuickBuy from '../components/ProductQuickBuy.vue'
 import CategorySidebar from '../components/CategorySidebar.vue'
 import PaginationNav from '../components/PaginationNav.vue'
+import { getAffiliateCode } from '../utils/affiliate'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -394,6 +419,16 @@ const products = ref<any[]>([])
 const posts = ref<any[]>([])
 const quickBuyProduct = ref<any>(null)
 const quickBuyVisible = ref(false)
+const affiliateGroup = ref({
+  group_section_enabled: false,
+  notice: '',
+  group_image_url: '',
+  parent_group_image_url: '',
+})
+const groupSectionVisible = computed(() => {
+  return !!affiliateGroup.value.group_section_enabled
+    && !!(affiliateGroup.value.notice || affiliateGroup.value.group_image_url || affiliateGroup.value.parent_group_image_url)
+})
 
 const openQuickBuy = (product: any) => {
   quickBuyProduct.value = product
@@ -482,12 +517,29 @@ const loadLatestPosts = async () => {
   }
 }
 
+const loadAffiliateGroupSection = async () => {
+  const code = getAffiliateCode()
+  if (!code) return
+  try {
+    const response = await affiliateAPI.getPublicContext(code)
+    const data = response?.data?.data || {}
+    affiliateGroup.value = {
+      group_section_enabled: !!data.group_section_enabled,
+      notice: String(data.notice || ''),
+      group_image_url: String(data.group_image_url || ''),
+      parent_group_image_url: String(data.parent_group_image_url || ''),
+    }
+  } catch (error) {
+    console.error('Failed to load affiliate group section:', error)
+  }
+}
+
 // ==================== Lifecycle ====================
 onMounted(async () => {
   if (templateMode.value === 'list') {
-    await Promise.all([loadBanners(), listInitialize()])
+    await Promise.all([loadBanners(), listInitialize(), loadAffiliateGroupSection()])
   } else {
-    await Promise.all([loadBanners(), loadFeaturedProducts(), loadLatestPosts()])
+    await Promise.all([loadBanners(), loadFeaturedProducts(), loadLatestPosts(), loadAffiliateGroupSection()])
   }
 })
 
