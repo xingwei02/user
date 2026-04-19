@@ -2,9 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserAuthStore } from '../stores/userAuth'
 import { useAppStore } from '../stores/app'
 import { useTelegramMiniAppStore } from '../stores/telegramMiniApp'
-import { affiliateAPI } from '../api'
 import { captureAffiliateFromRoute } from '../utils/affiliate'
-import { getAffiliateCode } from '../utils/affiliate'
 
 type RouteComponentLoader = () => Promise<unknown>
 
@@ -325,24 +323,10 @@ const router = createRouter({
     ],
 })
 
-const canAccessTokenMerchantGuestPage = async () => {
+// 注册客户（已登录）都可以访问 TokenMerchantGuestV2，无需检查推广码开关
+const canAccessTokenMerchantGuestPage = () => {
     const userAuthStore = useUserAuthStore()
-    if (!userAuthStore.isAuthenticated) {
-        return false
-    }
-    if (userAuthStore.isTokenMerchant) {
-        return true
-    }
-    const code = getAffiliateCode()
-    if (!code) {
-        return true
-    }
-    try {
-        const response = await affiliateAPI.getPublicContext(code)
-        return !!response?.data?.data?.merchant_page_enabled
-    } catch {
-        return false
-    }
+    return userAuthStore.isAuthenticated
 }
 
 // Navigation Guard
