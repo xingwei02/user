@@ -339,10 +339,14 @@ onMounted(async () => {
       return
     }
     if (userAuthStore.isTokenMerchant) {
+      // 已是 Token 商，留在页面展示宣传内容，按钮会引导进入正业中心
+      pageChecking.value = false
       return
     }
     const code = getAffiliateCode()
     if (!code) {
+      // 注册客户无推广码，可以看申请页
+      pageChecking.value = false
       return
     }
     const response = await affiliateAPI.getPublicContext(code)
@@ -350,11 +354,9 @@ onMounted(async () => {
       await router.replace('/')
       return
     }
+    pageChecking.value = false
   } catch {
     await router.replace('/')
-    return
-  } finally {
-    pageChecking.value = false
   }
 })
 </script>

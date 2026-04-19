@@ -1057,7 +1057,7 @@
                   <input type="number" v-model.number="discountSettings.discount_rate" min="0" max="5" step="0.01" style="flex: 1;">
                   <span>%</span>
                 </div>
-                <p class="form-tip">最高只能设置 5%，超出会自动按 5% 处理。</p>
+                <p class="form-tip">可设置 0% 到 100%，超出范围会自动纠正到边界值。</p>
               </div>
 
               <div class="preview-box mb-20">
@@ -1419,7 +1419,7 @@ const contactInfo = ref<ContactData>({
   parent_group_image_url: '',
 })
 const discountSettings = ref<DiscountData>({
-  discount_rate: 5,
+  discount_rate: 100,
   merchant_page_enabled: true,
   group_section_enabled: true,
 })
@@ -1601,7 +1601,7 @@ const currentCommissionRate = computed(() => {
 const normalizedDiscountRate = computed(() => {
   const raw = Number(discountSettings.value.discount_rate ?? 0)
   if (Number.isNaN(raw)) return 0
-  return Math.min(5, Math.max(0, raw))
+  return Math.min(100, Math.max(0, raw))
 })
 const myRemainingRate = computed(() => {
   const baseRate = Number(currentCommissionRate.value ?? 0)
@@ -1803,7 +1803,7 @@ const loadDiscount = async () => {
   try {
     const data = await zhengyeAPI.getDiscount()
     discountSettings.value = {
-      discount_rate: Number(data?.discount_rate ?? 5),
+      discount_rate: Number(data?.discount_rate ?? 100),
       merchant_page_enabled: Boolean(data?.merchant_page_enabled),
       group_section_enabled: Boolean(data?.group_section_enabled),
     }
@@ -1860,6 +1860,7 @@ watch(
   () => discountSettings.value.discount_rate,
   value => {
     const nextValue = Number(value)
+    // 客户优惠上限 5%
     discountSettings.value.discount_rate = Number.isNaN(nextValue) ? 0 : Math.min(5, Math.max(0, nextValue))
   }
 )
@@ -2005,7 +2006,7 @@ const saveDiscountSettings = async () => {
   try {
     savingDiscount.value = true
     const payload = {
-      discount_rate: Math.min(5, Math.max(0, Number(discountSettings.value.discount_rate ?? 0))),
+      discount_rate: Math.min(100, Math.max(0, Number(discountSettings.value.discount_rate ?? 0))),
       merchant_page_enabled: Boolean(discountSettings.value.merchant_page_enabled),
       group_section_enabled: Boolean(discountSettings.value.group_section_enabled),
     }
