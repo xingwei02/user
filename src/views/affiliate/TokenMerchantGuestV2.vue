@@ -334,10 +334,7 @@ const enterpriseFeature = computed(() => [t('tm.mode.enterprise.feat1'), t('tm.m
 
 onMounted(async () => {
   try {
-    if (!userAuthStore.isAuthenticated) {
-      await router.replace('/')
-      return
-    }
+    // 路由守卫已保证进来的是已登录用户，onMounted 不再重复检查登录态
     if (userAuthStore.isTokenMerchant) {
       // 已是 Token 商，留在页面展示宣传内容，按钮会引导进入正业中心
       pageChecking.value = false
@@ -345,18 +342,19 @@ onMounted(async () => {
     }
     const code = getAffiliateCode()
     if (!code) {
-      // 注册客户无推广码，可以看申请页
+      // 注册客户无推广码，也可以直接申请 Token 商
       pageChecking.value = false
       return
     }
     const response = await affiliateAPI.getPublicContext(code)
     if (!response?.data?.data?.merchant_page_enabled) {
-      await router.replace('/')
+      // 推广码存在但商家页未开启，仍然允许注册客户申请（不强制跳走）
+      pageChecking.value = false
       return
     }
     pageChecking.value = false
   } catch {
-    await router.replace('/')
+    pageChecking.value = false
   }
 })
 </script>

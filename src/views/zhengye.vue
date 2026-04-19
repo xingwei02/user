@@ -2152,9 +2152,12 @@ const changeStatsPeriod = async (period: StatsPeriod) => {
 }
 
 const copyPromotionLink = async () => {
-  const path = dashboard.value.promotion_path
   const code = dashboard.value.affiliate_code
-  const text = path || code
+  // 构建完整推广链接：带 aff（推广码，用于注册绑定上级）和 discount（折扣率，让客户看到优惠）
+  const discountRate = Number(discountSettings.value.discount_rate ?? 0)
+  const base = window.location.origin + '/?aff=' + (code || '')
+  const fullLink = discountRate > 0 ? base + '&discount=' + discountRate : base
+  const text = code ? fullLink : (dashboard.value.promotion_path || '')
 
   if (!text) return
 
