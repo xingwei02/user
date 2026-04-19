@@ -877,9 +877,9 @@
           <div class="flex justify-between mb-20">
             <input type="text" v-model="partnerKeyword" placeholder="输入邮箱或推广码筛选伙伴">
             <div class="flex gap-10">
-              <button class="btn btn-primary" @click="loadPartners">筛选</button>
-              <button class="btn btn-default" @click="partnerKeyword = ''; loadPartners()">重置</button>
-              <button class="btn btn-default" @click="loadPartners">刷新</button>
+              <button class="btn btn-primary" @click="loadPartners(1)">筛选</button>
+              <button class="btn btn-default" @click="partnerKeyword = ''; loadPartners(1)">重置</button>
+              <button class="btn btn-default" @click="loadPartners(partnerPage)">刷新</button>
             </div>
           </div>
 
@@ -960,6 +960,14 @@
                 </tr>
               </tbody>
             </table>
+
+            <div class="pagination">
+              <span>第 {{ partnerPage }} / {{ Math.max(1, Math.ceil(partners.length / 20)) }} 页</span>
+              <div class="flex gap-10">
+                <button class="btn btn-default btn-sm" :disabled="partnerPage <= 1" @click="changePartnerPage(partnerPage - 1)">上一页</button>
+                <button class="btn btn-default btn-sm" :disabled="partnerPage >= Math.max(1, Math.ceil(partners.length / 20))" @click="changePartnerPage(partnerPage + 1)">下一页</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -992,9 +1000,9 @@
               </div>
             </div>
             <div class="flex gap-10">
-              <button class="btn btn-primary" @click="loadOrders">筛选</button>
-              <button class="btn btn-default" @click="orderKeyword = ''; orderStatus = '全部'; orderSource = '全部'; loadOrders()">重置</button>
-              <button class="btn btn-default" @click="loadOrders">刷新</button>
+              <button class="btn btn-primary" @click="loadOrders(1)">筛选</button>
+              <button class="btn btn-default" @click="orderKeyword = ''; orderStatus = '全部'; orderSource = '全部'; loadOrders(1)">重置</button>
+              <button class="btn btn-default" @click="loadOrders(orderPage)">刷新</button>
             </div>
           </div>
 
@@ -1032,6 +1040,14 @@
                 </tr>
               </tbody>
             </table>
+
+            <div class="pagination">
+              <span>共 {{ orderTotal || orders.length }} 条，第 {{ orderPage }} / {{ Math.max(1, Math.ceil((orderTotal || orders.length) / orderPageSize)) }} 页</span>
+              <div class="flex gap-10">
+                <button class="btn btn-default btn-sm" :disabled="orderPage <= 1" @click="changeOrderPage(orderPage - 1)">上一页</button>
+                <button class="btn btn-default btn-sm" :disabled="orderPage >= Math.max(1, Math.ceil((orderTotal || orders.length) / orderPageSize))" @click="changeOrderPage(orderPage + 1)">下一页</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1815,9 +1831,16 @@ const loadDiscount = async () => {
   }
 }
 
-const loadPartners = async () => {
+const loadPartners = async (page = 1) => {
   try {
-    partners.value = await zhengyeAPI.getPartners(partnerKeyword.value ? { keyword: partnerKeyword.value } : undefined)
+    partnerPage.value = page
+    const pageSize = 20
+    const res = await zhengyeAPI.getPartners({
+      page,
+      page_size: pageSize,
+      ...(partnerKeyword.value ? { keyword: partnerKeyword.value } : {}),
+    })
+    partners.value = Array.isArray(res) ? res : (res as any)?.items ?? res
     partnerRateDrafts.value = partners.value.reduce<Record<number, number>>((acc, item) => {
       acc[item.id] = Number(item.rate || 0)
       return acc
@@ -1847,13 +1870,18 @@ const loadSettlement = async () => {
   }
 }
 
-const loadOrders = async () => {
+const loadOrders = async (page = 1) => {
   try {
-    orders.value = await zhengyeAPI.getOrders({
+    orderPage.value = page
+    const res = await zhengyeAPI.getOrders({
+      page,
+      page_size: orderPageSize,
       ...(orderKeyword.value ? { keyword: orderKeyword.value } : {}),
       ...(orderStatus.value !== '全部' ? { status: orderStatus.value } : {}),
       ...(orderSource.value !== '全部' ? { source: orderSource.value } : {}),
     })
+    orders.value = Array.isArray(res) ? res : (res as any)?.items ?? res
+    orderTotal.value = (res as any)?.total ?? orders.value.length
   } catch (error) {
     console.error('加载 orders 失败:', error)
   }
@@ -2244,10 +2272,10 @@ const viewOrderDetail = (item: OrderItem) => {
 }
 
 // 查看结算明细：跳转到订单记录页并按伙伴筛选
-const viewSettlementDetail = (partnerId: number, partnerCode: string) => {
+const viewSettlementDetail = (_partnerId: number, partnerCode: string) => {
   orderKeyword.value = partnerCode
   currentMenu.value = 'order'
-  loadOrders()
+  loadOrders(1)
 }
 
 // 导出 Excel（纯前端，无需依赖库，生成 CSV 格式）
@@ -2284,7 +2312,7 @@ const exportSettlementExcel = () => {
 // 伙伴分页
 const partnerPage = ref(1)
 const changePartnerPage = async (page: number) => {
-  const total = partners.value.length // 当前无后端分页，前端分页
+  const total = Array.isArray(partners.value) ? partners.value.length : 0
   const pageSize = 20
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   if (page < 1 || page > totalPages) return
