@@ -183,15 +183,15 @@ const mapDashboard = (data: any): DashboardData => ({
   affiliate_code: data?.affiliate_code || '',
   promotion_path: data?.promotion_path || '',
   my_commission_rate: Number(data?.my_rate ?? 0),
-  max_commission_rate: Number(data?.my_rate ?? 0),
+  max_commission_rate: Number(data?.max_commission_rate ?? data?.my_rate ?? 0),
   upgrade_condition: data?.upgrade_condition || '',
-  paid_commission: data?.paid_commission != null ? formatMoney(data?.paid_commission) : undefined,
-  pending_commission: data?.pending_commission != null ? formatMoney(data?.pending_commission) : undefined,
-  total_commission: data?.total_earnings != null ? formatMoney(data?.total_earnings) : undefined,
-  direct_partners: Number(data?.total_partners ?? 0),
+  paid_commission: formatMoney(data?.paid_commission),
+  pending_commission: formatMoney(data?.pending_commission),
+  total_commission: formatMoney(data?.total_earnings),
+  direct_partners: Number(data?.direct_partners ?? data?.total_partners ?? 0),
   total_orders: Number(data?.total_orders ?? 0),
-  total_sales: data?.total_sales != null ? formatMoney(data?.total_sales) : undefined,
-  discount_rate: data?.discount_rate != null ? Number(data?.discount_rate) : undefined,
+  total_sales: formatMoney(data?.total_sales),
+  discount_rate: Number(data?.discount_rate ?? 0),
 })
 
 const mapStats = (data: any): StatsData => ({
@@ -232,60 +232,104 @@ const mapStats = (data: any): StatsData => ({
     : [],
 })
 
-const mapRank = (data: any): RankData => ({
-  date: '',
-  top_sales: data?.items?.[0]
-    ? { amount: data.items[0].earnings, rank: 1, code: data.items[0].display_name || `U${data.items[0].user_id}` }
-    : undefined,
-  top_orders: data?.items?.[0]
-    ? { count: Number(data.items[0].orders ?? 0), rank: 1, code: data.items[0].display_name || `U${data.items[0].user_id}` }
-    : undefined,
-  earliest_order: undefined,
-  top_team: undefined,
-  top_network: undefined,
-  fastest_order: undefined,
-  team_rank: { group: '当前榜单', group_range: '', group_total: Array.isArray(data?.items) ? data.items.length : 0, my_rank: 0, my_sales: '0.00', gap_to_next: '', top3: [] },
-  network_rank: { group: '当前榜单', group_range: '', group_total: Array.isArray(data?.items) ? data.items.length : 0, my_rank: 0, my_sales: '0.00', gap_to_next: '', top3: [] },
-})
+// 后端 ZhengyeRankDimension: { name, value, rank, my_val }
+// 前端 zhengye.vue 使用: { code, amount, count, time, minutes, rank }
+const mapRankDim = (d: any, type: 'sales' | 'orders' | 'time' | 'minutes' = 'sales') => {
+  if (!d) return { code: '--', amount: '0.00', count: 0, time: '--', minutes: 0, rank: 0, my_val: '--' }
+  const base = { code: d.name || '--', rank: Number(d.rank ?? 0), my_val: d.my_val || '--' }
+  switch (type) {
+    case 'orders': return { ...base, amount: '0.00', count: Number(d.value ?? 0), time: '--', minutes: 0 }
+    case 'time':   return { ...base, amount: '0.00', count: 0, time: String(d.value ?? '--'), minutes: 0 }
+    case 'minutes': return { ...base, amount: '0.00', count: 0, time: '--', minutes: Number(String(d.value ?? '0').replace(/[^0-9]/g, '')) }
+    default:       return { ...base, amount: String(d.value ?? '0.00'), count: 0, time: '--', minutes: 0 }
+  }
+}
+
+const mapRank = (data: any): RankData => {
+  if (!data) return {}
+  return {
+    use_custom: Boolean(data.use_custom),
+    date: new Date().toISOString().slice(0, 10),
+    top_sales: mapRankDim(data.top_sales, 'sales'),
+    top_orders: mapRankDim(data.top_orders, 'orders'),
+    earliest_order: mapRankDim(data.earliest_order, 'time'),
+    top_team: mapRankDim(data.top_team, 'sales'),
+    top_network: mapRankDim(data.top_network, 'sales'),
+    fastest_order: mapRankDim(data.fastest_order, 'minutes'),
+    // 团队/网络排行榜（简化：用 items 前3条模拟）
+    team_rank: {
+      group: '综合组',
+      group_total: Array.isArray(data.items) ? data.items.length : 0,
+      my_rank: data.top_sales?.rank ?? 0,
+      my_sales: data.top_sales?.my_val ?? '0.00',
+      gap_to_next: '--',
+      top3: Array.isArray(data.items) ? data.items.slice(0, 3).map((r: any, i: number) => ({
+        rank: i + 1,
+        code: r.display_name || '--',
+        amount: r.earnings || '0.00',
+      })) : [],
+    },
+    network_rank: {
+      group: '综合组',
+      group_total: Array.isArray(data.items) ? data.items.length : 0,
+      my_rank: data.top_network?.rank ?? 0,
+      my_sales: data.top_network?.my_val ?? '0.00',
+      gap_to_next: '--',
+      top3: Array.isArray(data.items) ? data.items.slice(0, 3).map((r: any, i: number) => ({
+        rank: i + 1,
+        code: r.display_name || '--',
+        amount: r.earnings || '0.00',
+      })) : [],
+    },
+    items: Array.isArray(data.items)
+      ? data.items.map((r: any) => ({
+          user_id: Number(r.user_id ?? 0),
+          display_name: r.display_name || '--',
+          earnings: r.earnings || '0.00',
+          orders: Number(r.orders ?? 0),
+        }))
+      : [],
+  }
+}
 
 const mapPartners = (data: any): PartnerItem[] =>
   Array.isArray(data?.items)
     ? data.items.map((item: any) => ({
         id: Number(item.user_id ?? 0),
-        code: `U${String(item.user_id ?? 0).padStart(4, '0')}`,
-        email: item.display_name || '',
+        code: item.affiliate_code || `U${String(item.user_id ?? 0).padStart(4, '0')}`,
+        email: item.email || item.display_name || '',
         avatar: '',
-        level_name: `等级${Number(item.level ?? 1)}`,
-        level_icon: '🏅',
+        level_name: item.level_name || `等级${Number(item.level ?? 1)}`,
+        level_icon: item.level_icon || '🏅',
         rate: Number(item.rate ?? 0),
-        today_direct_sales: '0.00',
-        total_direct_sales: '0.00',
-        today_network_sales: '0.00',
-        total_network_sales: '0.00',
-        total_network_orders: 0,
-        today_settlement: '0.00',
-        total_settlement: '0.00',
-        group_visible: false,
-        is_new: false,
+        today_direct_sales: formatMoney(item.today_direct_sales),
+        total_direct_sales: formatMoney(item.total_direct_sales),
+        today_network_sales: formatMoney(item.today_network_sales),
+        total_network_sales: formatMoney(item.total_network_sales),
+        total_network_orders: Number(item.total_network_orders ?? 0),
+        today_settlement: formatMoney(item.today_settlement),
+        total_settlement: formatMoney(item.total_settlement),
+        group_visible: Boolean(item.group_visible ?? true),
+        is_new: Boolean(item.is_new),
       }))
     : []
 
 const mapTeam = (data: any): TeamData => ({
-  direct_count: Number(data?.total ?? 0),
-  total_count: Number(data?.total ?? 0),
-  network_buyers: Number(data?.total ?? 0),
-  graduated_count: 0,
+  direct_count: Number(data?.summary?.direct_count ?? data?.total ?? 0),
+  total_count: Number(data?.summary?.total_count ?? data?.total ?? 0),
+  network_buyers: Number(data?.summary?.network_buyers ?? 0),
+  graduated_count: Number(data?.summary?.graduated_count ?? 0),
   members: Array.isArray(data?.items)
     ? data.items.map((item: any) => ({
         id: Number(item.user_id ?? 0),
-        code: `U${String(item.user_id ?? 0).padStart(4, '0')}`,
+        code: item.affiliate_code || `U${String(item.user_id ?? 0).padStart(4, '0')}`,
         email: item.display_name || '',
         avatar: '',
-        self_sales: '0.00',
-        team_settlement: '0.00',
+        self_sales: formatMoney(item.self_sales),
+        team_settlement: formatMoney(item.team_settlement),
         self_orders: String(item.total_orders ?? 0),
-        channel_count: String(item.level ?? 1),
-        is_new: false,
+        channel_count: String(item.channel_count ?? 0),
+        is_new: Boolean(item.is_new),
       }))
     : [],
   total: Number(data?.total ?? 0),
@@ -293,59 +337,67 @@ const mapTeam = (data: any): TeamData => ({
   page_size: Number(data?.page_size ?? 20),
 })
 
-const mapSettlement = (data: any): SettlementData => ({
-  date: data?.items?.[0]?.settle_date || '',
-  summary: {
-    direct_nodes: Number(data?.total ?? 0),
-    orders: 0,
-    total_sales: '0.00',
-    refund_amount: '0.00',
-    net_sales: '0.00',
-    original_settlement: '0.00',
-    refund_deduction: '0.00',
-    net_settlement: '0.00',
-    net_settlement_rate: '0.00',
-    paid_amount: '0.00',
-    unpaid_amount: '0.00',
-  },
-  items: Array.isArray(data?.items)
-    ? data.items.map((item: any) => ({
-        id: Number(item.user_id ?? 0),
-        code: `U${String(item.user_id ?? 0).padStart(4, '0')}`,
-        email: item.display_name || '',
-        avatar: '',
-        self_sales: '0.00',
-        team_sales: '0.00',
-        total_sales: '0.00',
-        refund_amount: '0.00',
-        net_sales: '0.00',
-        self_orders: 0,
-        team_orders: 0,
-        net_settlement: formatMoney(item.pending_amount),
-        original_settlement: formatMoney(item.settled_amount),
-        refund_deduction: '0.00',
-        settled_orders: 0,
-        pending_orders: 0,
-        direct_partners: 0,
-        total_partners: 0,
-      }))
-    : [],
-  total: Number(data?.total ?? 0),
-  page: Number(data?.page ?? 1),
-  page_size: Number(data?.page_size ?? 20),
-})
+const mapSettlement = (data: any): SettlementData => {
+  const items = Array.isArray(data?.items) ? data.items : []
+  // 从 items 聚合 summary
+  let totalPending = 0
+  let totalSettled = 0
+  for (const item of items) {
+    totalPending += Number(item.pending_amount ?? 0)
+    totalSettled += Number(item.settled_amount ?? 0)
+  }
+  return {
+    date: items[0]?.settle_date || '',
+    summary: {
+      direct_nodes: Number(data?.total ?? 0),
+      orders: 0,
+      total_sales: '0.00',
+      refund_amount: '0.00',
+      net_sales: '0.00',
+      original_settlement: formatMoney(totalSettled),
+      refund_deduction: '0.00',
+      net_settlement: formatMoney(totalPending),
+      net_settlement_rate: '0.00',
+      paid_amount: formatMoney(totalSettled),
+      unpaid_amount: formatMoney(totalPending),
+    },
+    items: items.map((item: any) => ({
+      id: Number(item.user_id ?? 0),
+      code: item.affiliate_code || `U${String(item.user_id ?? 0).padStart(4, '0')}`,
+      email: item.display_name || '',
+      avatar: '',
+      self_sales: formatMoney(item.self_sales),
+      team_sales: formatMoney(item.team_sales),
+      total_sales: formatMoney(item.total_sales),
+      refund_amount: '0.00',
+      net_sales: formatMoney(item.team_sales),
+      self_orders: Number(item.self_orders ?? 0),
+      team_orders: Number(item.team_orders ?? 0),
+      net_settlement: formatMoney(item.pending_amount),
+      original_settlement: formatMoney(item.settled_amount),
+      refund_deduction: '0.00',
+      settled_orders: 0,
+      pending_orders: 0,
+      direct_partners: 0,
+      total_partners: 0,
+    })),
+    total: Number(data?.total ?? 0),
+    page: Number(data?.page ?? 1),
+    page_size: Number(data?.page_size ?? 20),
+  }
+}
 
 const mapOrders = (data: any): OrderItem[] =>
   Array.isArray(data?.items)
     ? data.items.map((item: any) => ({
-        order_no: String(item.order_id ?? ''),
-        channel: '我的直销',
-        product_name: '-',
+        order_no: item.order_no || String(item.order_id ?? ''),
+        channel: item.channel || '我的直销',
+        product_name: item.product_name || '-',
         paid_amount: formatMoney(item.amount),
         status: item.status || '',
-        partner_commission: '0.00',
+        partner_commission: formatMoney(item.partner_commission),
         my_commission: formatMoney(item.commission),
-        referrer_cost: '0.00',
+        referrer_cost: formatMoney(item.referrer_cost),
         created_at: item.created_at || '',
       }))
     : []

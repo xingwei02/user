@@ -627,10 +627,14 @@
 
             <div class="form-item">
               <label>官方群二维码 / 引导图</label>
-              <button class="btn btn-default btn-sm" style="float: right;">上传图片</button>
+              <input ref="groupImageInput" type="file" accept="image/*" style="display:none" @change="handleGroupImageUpload">
+              <button class="btn btn-default btn-sm" style="float: right;" :disabled="uploadingGroupImage" @click="groupImageInput?.click()">
+                {{ uploadingGroupImage ? '上传中...' : '上传图片' }}
+              </button>
               <p class="form-tip">这里上传的是给你下级看的群二维码或引导图。你不上传时，下级默认看到上一级 / 管理员设置的内容。</p>
               <div class="upload-placeholder">
-                <p>你还没有上传官方群图片，当前将继续使用上一级 / 管理员默认内容。</p>
+                <img v-if="contactInfo.group_image_url" :src="contactInfo.group_image_url" style="max-width:200px;max-height:200px;border-radius:8px;" alt="群二维码">
+                <p v-else>你还没有上传官方群图片，当前将继续使用上一级 / 管理员默认内容。</p>
               </div>
             </div>
 
@@ -664,8 +668,7 @@
               <input type="text" v-model="settlementKeyword" placeholder="输入邮箱或推广码筛选直属伙伴">
               <button class="btn btn-primary" @click="loadSettlement">查询</button>
               <button class="btn btn-default" @click="loadSettlement">刷新</button>
-              <button class="btn btn-default">Excel ▾</button>
-              <button class="btn btn-default">导出</button>
+              <button class="btn btn-default" @click="exportSettlementExcel">导出 Excel</button>
             </div>
           </div>
 
@@ -763,7 +766,7 @@
                     <div class="text-sm text-gray">已结 {{ item.settled_orders }} 单，待结 {{ item.pending_orders }} 单</div>
                   </td>
                   <td>
-                    <button class="btn btn-default btn-sm mb-5">查看明细</button>
+                    <button class="btn btn-default btn-sm mb-5" @click="viewSettlementDetail(item.id, item.code)">查看明细</button>
                     <button class="btn btn-primary btn-sm" :disabled="settlingPartnerId === item.id" @click="handleSettle(item.id)">{{ settlingPartnerId === item.id ? '结算中...' : '去结算' }}</button>
                   </td>
                 </tr>
@@ -776,8 +779,8 @@
             <div class="pagination">
               <span>共 {{ settlement.total || filteredSettlementItems.length }} 条，第 {{ settlement.page || 1 }}/{{ Math.max(1, Math.ceil((settlement.total || filteredSettlementItems.length) / (settlement.page_size || 20))) }} 页</span>
               <div class="flex gap-10">
-                <button class="btn btn-default btn-sm" disabled>上一页</button>
-                <button class="btn btn-default btn-sm" disabled>下一页</button>
+                <button class="btn btn-default btn-sm" :disabled="(settlement.page || 1) <= 1" @click="changeSettlementPage((settlement.page || 1) - 1)">上一页</button>
+                <button class="btn btn-default btn-sm" :disabled="(settlement.page || 1) >= Math.max(1, Math.ceil((settlement.total || filteredSettlementItems.length) / (settlement.page_size || 20)))" @click="changeSettlementPage((settlement.page || 1) + 1)">下一页</button>
               </div>
             </div>
           </div>
@@ -860,8 +863,8 @@
             <div class="pagination">
               <span>第 {{ team.page || 1 }} / {{ Math.max(1, Math.ceil((team.total || filteredTeamMembers.length) / (team.page_size || 20))) }} 页</span>
               <div class="flex gap-10">
-                <button class="btn btn-default btn-sm" disabled>上一页</button>
-                <button class="btn btn-default btn-sm" disabled>下一页</button>
+                <button class="btn btn-default btn-sm" :disabled="(team.page || 1) <= 1" @click="changeTeamPage((team.page || 1) - 1)">上一页</button>
+                <button class="btn btn-default btn-sm" :disabled="(team.page || 1) >= Math.max(1, Math.ceil((team.total || filteredTeamMembers.length) / (team.page_size || 20)))" @click="changeTeamPage((team.page || 1) + 1)">下一页</button>
               </div>
             </div>
           </div>
@@ -1022,7 +1025,7 @@
                   <td class="green">¥{{ item.my_commission }}</td>
                   <td class="orange">¥{{ item.referrer_cost }}</td>
                   <td>{{ item.created_at }}</td>
-                  <td><button class="btn btn-default btn-sm">查看详情</button></td>
+                  <td><button class="btn btn-default btn-sm" @click="viewOrderDetail(item)">查看详情</button></td>
                 </tr>
                 <tr v-if="!filteredOrders.length">
                   <td colspan="10" class="text-center text-gray">暂无订单记录</td>
@@ -1057,7 +1060,7 @@
                   <input type="number" v-model.number="discountSettings.discount_rate" min="0" max="5" step="0.01" style="flex: 1;">
                   <span>%</span>
                 </div>
-                <p class="form-tip">可设置 0% 到 100%，超出范围会自动纠正到边界值。</p>
+                <p class="form-tip">可设置 0% 到 5%，超出范围会自动纠正到边界值。</p>
               </div>
 
               <div class="preview-box mb-20">
@@ -1917,6 +1920,10 @@ const refreshDecorations = () => {
 }
 
 const insertLevel = (index: number, position: 'above' | 'below') => {
+  if (localLevels.value.length >= 3) {
+    window.alert('最多只能设置 3 个档位')
+    return
+  }
   const target = position === 'above' ? index : index + 1
   localLevels.value.splice(target, 0, createBlankLevel())
   refreshDecorations()
@@ -2189,6 +2196,166 @@ const getTrendPointStyle = (index: number, length: number, amount: number) => {
   return {
     left: `${(index / (length - 1)) * 100}%`,
     top: `${maxTop - progress * (maxTop - minTop)}%`,
+  }
+}
+
+// 图片上传
+const groupImageInput = ref<HTMLInputElement | null>(null)
+const uploadingGroupImage = ref(false)
+
+const handleGroupImageUpload = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    uploadingGroupImage.value = true
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('scene', 'common')
+    const { userApi } = await import('../api/client')
+    const res = await userApi.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const url = res.data?.data?.url || res.data?.url || ''
+    if (url) {
+      contactInfo.value.group_image_url = url
+      window.alert('图片上传成功')
+    }
+  } catch (error) {
+    console.error('上传图片失败:', error)
+    window.alert('上传失败，请稍后重试')
+  } finally {
+    uploadingGroupImage.value = false
+    if (groupImageInput.value) groupImageInput.value.value = ''
+  }
+}
+
+// 查看订单详情（无独立详情页，用 alert 展示关键字段）
+const viewOrderDetail = (item: OrderItem) => {
+  const lines = [
+    `订单号：${item.order_no}`,
+    `伙伴渠道：${item.channel}`,
+    `商品：${item.product_name}`,
+    `实付金额：¥${item.paid_amount}`,
+    `订单状态：${item.status}`,
+    `伙伴佣金：¥${item.partner_commission}`,
+    `我的佣金：¥${item.my_commission}`,
+    `推荐人成本：¥${item.referrer_cost}`,
+    `成交时间：${item.created_at}`,
+  ]
+  window.alert(lines.join('\n'))
+}
+
+// 查看结算明细：跳转到订单记录页并按伙伴筛选
+const viewSettlementDetail = (partnerId: number, partnerCode: string) => {
+  orderKeyword.value = partnerCode
+  currentMenu.value = 'order'
+  loadOrders()
+}
+
+// 导出 Excel（纯前端，无需依赖库，生成 CSV 格式）
+const exportSettlementExcel = () => {
+  const items = filteredSettlementItems.value
+  if (!items.length) {
+    window.alert('暂无数据可导出')
+    return
+  }
+  const headers = ['推广码', '伙伴', '自己销售', '团队销售', '总销售', '自己订单', '团队订单', '待结算', '已结算', '结算日期']
+  const rows = items.map(item => [
+    item.code,
+    item.email,
+    item.self_sales,
+    item.team_sales,
+    item.total_sales,
+    item.self_orders,
+    item.team_orders,
+    item.net_settlement,
+    item.original_settlement,
+    settlement.value.date || settleDate.value,
+  ])
+  const csv = [headers, ...rows].map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `伙伴结算_${settleDate.value}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// 伙伴分页
+const partnerPage = ref(1)
+const changePartnerPage = async (page: number) => {
+  const total = partners.value.length // 当前无后端分页，前端分页
+  const pageSize = 20
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  if (page < 1 || page > totalPages) return
+  partnerPage.value = page
+  try {
+    const res = await zhengyeAPI.getPartners({
+      page,
+      page_size: pageSize,
+      ...(partnerKeyword.value ? { keyword: partnerKeyword.value } : {}),
+    })
+    partners.value = Array.isArray(res) ? res : (res as any)?.items ?? res
+  } catch (error) {
+    console.error('加载 partners 失败:', error)
+  }
+}
+
+// 订单分页
+const orderPage = ref(1)
+const orderPageSize = 20
+const orderTotal = ref(0)
+const changeOrderPage = async (page: number) => {
+  const totalPages = Math.max(1, Math.ceil(orderTotal.value / orderPageSize))
+  if (page < 1 || page > totalPages) return
+  orderPage.value = page
+  try {
+    const res = await zhengyeAPI.getOrders({
+      page,
+      page_size: orderPageSize,
+      ...(orderKeyword.value ? { keyword: orderKeyword.value } : {}),
+      ...(orderStatus.value !== '全部' ? { status: orderStatus.value } : {}),
+      ...(orderSource.value !== '全部' ? { source: orderSource.value } : {}),
+    })
+    orders.value = Array.isArray(res) ? res : (res as any)?.items ?? res
+    orderTotal.value = (res as any)?.total ?? orders.value.length
+  } catch (error) {
+    console.error('加载 orders 失败:', error)
+  }
+}
+
+// 结算分页
+const settlementPage = ref(1)
+const changeSettlementPage = async (page: number) => {
+  const totalPages = Math.max(1, Math.ceil((settlement.value.total || filteredSettlementItems.value.length) / (settlement.value.page_size || 20)))
+  if (page < 1 || page > totalPages) return
+  settlementPage.value = page
+  try {
+    settlement.value = await zhengyeAPI.getSettlement({
+      date: settleDate.value,
+      page,
+      page_size: settlement.value.page_size || 20,
+      ...(settlementKeyword.value ? { keyword: settlementKeyword.value } : {}),
+    })
+  } catch (error) {
+    console.error('加载 settlement 失败:', error)
+  }
+}
+
+// 团队分页
+const teamPage = ref(1)
+const changeTeamPage = async (page: number) => {
+  const totalPages = Math.max(1, Math.ceil((team.value.total || filteredTeamMembers.value.length) / (team.value.page_size || 20)))
+  if (page < 1 || page > totalPages) return
+  teamPage.value = page
+  try {
+    team.value = await zhengyeAPI.getTeam({
+      page,
+      page_size: team.value.page_size || 20,
+      ...(teamKeyword.value ? { keyword: teamKeyword.value } : {}),
+    })
+  } catch (error) {
+    console.error('加载 team 失败:', error)
   }
 }
 
