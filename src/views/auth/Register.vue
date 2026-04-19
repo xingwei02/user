@@ -205,7 +205,7 @@ import { useRouter } from 'vue-router'
 import { useUserAuthStore } from '../../stores/userAuth'
 import { useI18n } from 'vue-i18n'
 import { debounceAsync } from '../../utils/debounce'
-import { getAffiliateCode } from '../../utils/affiliate'
+import { captureAffiliateFromRoute, getAffiliateCode } from '../../utils/affiliate'
 import { useAppStore } from '../../stores/app'
 import type { CaptchaPayload } from '../../api'
 import ImageCaptcha from '../../components/captcha/ImageCaptcha.vue'
@@ -357,6 +357,7 @@ const handleSendCode = debounceAsync(performSendCode, 200)
 const handleRegister = debounceAsync(performRegister, 200)
 
 onMounted(async () => {
+  await captureAffiliateFromRoute(route)
   await appStore.loadConfig(true)
 })
 </script>

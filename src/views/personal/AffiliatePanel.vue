@@ -253,6 +253,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { affiliateAPI, type AffiliateCommissionData, type AffiliateDashboardData, type AffiliateWithdrawData } from '../../api'
+import { zhengyeAPI } from '../../api/zhengye'
 import {
   AFFILIATE_COMMISSION_STATUS_AVAILABLE,
   AFFILIATE_COMMISSION_STATUS_PENDING_CONFIRM,
@@ -306,11 +307,15 @@ const channelOptions = computed(() => {
   return channels.map((item: any) => String(item || '').trim()).filter(Boolean)
 })
 
+const affiliateDiscountRate = ref(0)
+
 const promotionUrl = computed(() => {
   if (!dashboard.value?.affiliate_code) return '-'
-  const path = dashboard.value.promotion_path || `/?aff=${dashboard.value.affiliate_code}`
+  const code = dashboard.value.affiliate_code
+  const basePath = dashboard.value.promotion_path || `/?aff=${code}&inviter_code=${code}`
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  return `${origin}${path}`
+  const base = `${origin}${basePath}`
+  return affiliateDiscountRate.value > 0 ? `${base}&discount=${affiliateDiscountRate.value}` : base
 })
 
 const conversionRateText = computed(() => {
@@ -375,12 +380,21 @@ const reloadOpenedData = async () => {
   await Promise.all([loadCommissions(1), loadWithdraws(1)])
 }
 
+const loadDiscountRate = async () => {
+  try {
+    const data = await zhengyeAPI.getDiscount()
+    affiliateDiscountRate.value = Number(data?.discount_rate ?? 0)
+  } catch (_) {
+    // 折扣数据加载失败不阻塞
+  }
+}
+
 const initialize = async () => {
   loading.value = true
   panelAlert.value = null
   await appStore.loadConfig()
   await loadDashboard()
-  await reloadOpenedData()
+  await Promise.all([reloadOpenedData(), loadDiscountRate()])
   loading.value = false
 }
 

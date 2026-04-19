@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/app'
 const AFFILIATE_STORAGE_KEY = 'dj_affiliate_attribution'
 const AFFILIATE_VISITOR_KEY = 'dj_affiliate_visitor_key'
 const AFFILIATE_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const AFFILIATE_COOKIE_KEY = 'aff'
 
 type AffiliateAttribution = {
     code: string
@@ -49,6 +50,7 @@ const writeAttribution = (code: string) => {
         expires_at: useAppStore().getServerTime() + AFFILIATE_TTL_MS,
     }
     localStorage.setItem(AFFILIATE_STORAGE_KEY, JSON.stringify(payload))
+    document.cookie = `${AFFILIATE_COOKIE_KEY}=${encodeURIComponent(code)}; path=/; max-age=${Math.floor(AFFILIATE_TTL_MS / 1000)}`
 }
 
 const ensureVisitorKey = () => {
@@ -62,8 +64,8 @@ const ensureVisitorKey = () => {
 
 const resolveQueryCode = (route: RouteLocationNormalizedLoaded | RouteLocationNormalized) => {
     const raw = Array.isArray(route.query.aff) ? route.query.aff[0] : route.query.aff
-    if (!raw) return ''
-    return normalizeAffiliateCode(String(raw))
+    const inviterRaw = Array.isArray(route.query.inviter_code) ? route.query.inviter_code[0] : route.query.inviter_code
+    return normalizeAffiliateCode(String(raw || inviterRaw || ''))
 }
 
 export const getAffiliateCode = () => {
@@ -81,6 +83,7 @@ export const getAffiliateVisitorKey = () => {
 export const clearAffiliateCode = () => {
     if (typeof window === 'undefined') return
     localStorage.removeItem(AFFILIATE_STORAGE_KEY)
+    document.cookie = `${AFFILIATE_COOKIE_KEY}=; path=/; max-age=0`
 }
 
 export const captureAffiliateFromRoute = async (route: RouteLocationNormalizedLoaded | RouteLocationNormalized) => {

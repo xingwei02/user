@@ -57,15 +57,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { affiliateAPI } from '../../api'
+import { zhengyeAPI } from '../../api/zhengye'
 import { useToast } from '../../composables/useToast'
 
 const { toast } = useToast()
 const dashboard = ref<any>(null)
+const discountRate = ref(0)
 
 const promotionUrl = computed(() => {
   const code = dashboard.value?.affiliate_code || ''
   if (!code) return `${window.location.origin}/`
-  return `${window.location.origin}/?aff=${code}`
+  const base = `${window.location.origin}/?aff=${code}&inviter_code=${code}`
+  return discountRate.value > 0 ? `${base}&discount=${discountRate.value}` : base
 })
 
 const load = async () => {
@@ -74,6 +77,12 @@ const load = async () => {
     dashboard.value = data?.data || data
   } catch (e) {
     toast.error('推广数据加载失败')
+  }
+  try {
+    const discountData = await zhengyeAPI.getDiscount()
+    discountRate.value = Number(discountData?.discount_rate ?? 0)
+  } catch (_) {
+    // 折扣数据加载失败不阻塞页面
   }
 }
 

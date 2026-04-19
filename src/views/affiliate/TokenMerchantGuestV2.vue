@@ -237,7 +237,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { affiliateAPI } from '../../api'
 import { useUserAuthStore } from '../../stores/userAuth'
-import { getAffiliateCode } from '../../utils/affiliate'
+import { captureAffiliateFromRoute, getAffiliateCode } from '../../utils/affiliate'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -336,6 +336,7 @@ const enterpriseFeature = computed(() => [t('tm.mode.enterprise.feat1'), t('tm.m
 
 onMounted(async () => {
   try {
+    await captureAffiliateFromRoute(route)
     // 路由守卫已保证进来的是已登录用户，onMounted 不再重复检查登录态
     if (userAuthStore.isTokenMerchant) {
       // 已是 Token 商，留在页面展示宣传内容，按钮会引导进入正业中心

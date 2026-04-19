@@ -234,6 +234,10 @@
               <span>{{ t('checkout.previewMemberDiscount') }}</span>
               <span class="font-mono text-amber-600 dark:text-amber-300">-{{ formatPrice(previewMemberDiscount, previewCurrency) }}</span>
             </div>
+            <div v-if="Number(previewAffiliateDiscount) > 0" class="flex items-center justify-between">
+              <span>{{ t('checkout.previewAffiliateDiscount') }}</span>
+              <span class="font-mono text-emerald-600 dark:text-emerald-300">-{{ formatPrice(previewAffiliateDiscount, previewCurrency) }}</span>
+            </div>
             <div class="flex items-center justify-between border-t theme-border pt-3 theme-text-primary">
               <span class="font-semibold">{{ t('checkout.previewTotal') }}</span>
               <span class="font-mono text-lg font-bold">{{ formatPrice(previewTotal, previewCurrency) }}</span>
@@ -536,6 +540,7 @@ const previewOriginal = computed(() => preview.value?.original_amount ?? totalAm
 const previewCoupon = computed(() => preview.value?.discount_amount ?? '0')
 const previewPromotion = computed(() => preview.value?.promotion_discount_amount ?? '0')
 const previewMemberDiscount = computed(() => preview.value?.member_discount_amount ?? '0')
+const previewAffiliateDiscount = computed(() => preview.value?.affiliate_discount_amount ?? '0')
 const previewTotal = computed(() => preview.value?.total_amount ?? totalAmount.value)
 
 const checkoutMode = ref<'guest' | 'member'>('guest')
