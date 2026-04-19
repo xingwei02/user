@@ -342,22 +342,26 @@ const mapSettlement = (data: any): SettlementData => {
   // 从 items 聚合 summary
   let totalPending = 0
   let totalSettled = 0
+  let totalSales = 0
+  let totalOrders = 0
   for (const item of items) {
     totalPending += Number(item.pending_amount ?? 0)
     totalSettled += Number(item.settled_amount ?? 0)
+    totalSales += Number(item.total_sales ?? 0)
+    totalOrders += Number(item.self_orders ?? 0) + Number(item.team_orders ?? 0)
   }
   return {
     date: items[0]?.settle_date || '',
     summary: {
       direct_nodes: Number(data?.total ?? 0),
-      orders: 0,
-      total_sales: '0.00',
+      orders: totalOrders,
+      total_sales: formatMoney(totalSales),
       refund_amount: '0.00',
-      net_sales: '0.00',
-      original_settlement: formatMoney(totalSettled),
+      net_sales: formatMoney(totalSales),
+      original_settlement: formatMoney(totalPending + totalSettled),
       refund_deduction: '0.00',
       net_settlement: formatMoney(totalPending),
-      net_settlement_rate: '0.00',
+      net_settlement_rate: totalSales > 0 ? ((totalPending / totalSales) * 100).toFixed(2) : '0.00',
       paid_amount: formatMoney(totalSettled),
       unpaid_amount: formatMoney(totalPending),
     },
@@ -370,11 +374,11 @@ const mapSettlement = (data: any): SettlementData => {
       team_sales: formatMoney(item.team_sales),
       total_sales: formatMoney(item.total_sales),
       refund_amount: '0.00',
-      net_sales: formatMoney(item.team_sales),
+      net_sales: formatMoney(item.total_sales),
       self_orders: Number(item.self_orders ?? 0),
       team_orders: Number(item.team_orders ?? 0),
       net_settlement: formatMoney(item.pending_amount),
-      original_settlement: formatMoney(item.settled_amount),
+      original_settlement: formatMoney(Number(item.pending_amount ?? 0) + Number(item.settled_amount ?? 0)),
       refund_deduction: '0.00',
       settled_orders: 0,
       pending_orders: 0,

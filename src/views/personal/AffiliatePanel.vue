@@ -264,6 +264,7 @@ import {
 } from '../../constants/affiliate'
 import { useAppStore } from '../../stores/app'
 import { pageAlertClass, type PageAlert } from '../../utils/alerts'
+import { getAffiliateCode } from '../../utils/affiliate'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -387,7 +388,8 @@ const openAffiliate = async () => {
   opening.value = true
   panelAlert.value = null
   try {
-    await affiliateAPI.open()
+    const inviterCode = getAffiliateCode()
+    await affiliateAPI.open(inviterCode ? { inviter_code: inviterCode } : undefined)
     await loadDashboard()
     await reloadOpenedData()
     panelAlert.value = {

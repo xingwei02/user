@@ -200,10 +200,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { useUserAuthStore } from '../../stores/userAuth'
 import { useI18n } from 'vue-i18n'
 import { debounceAsync } from '../../utils/debounce'
+import { getAffiliateCode } from '../../utils/affiliate'
 import { useAppStore } from '../../stores/app'
 import type { CaptchaPayload } from '../../api'
 import ImageCaptcha from '../../components/captcha/ImageCaptcha.vue'
@@ -211,6 +213,7 @@ import TurnstileCaptcha from '../../components/captcha/TurnstileCaptcha.vue'
 import { useFormValidation, getPasswordStrength } from '../../composables/useFormValidation'
 
 const router = useRouter()
+const route = useRoute()
 const userAuthStore = useUserAuthStore()
 const appStore = useAppStore()
 const { t } = useI18n()
@@ -334,11 +337,15 @@ const performRegister = async () => {
     return
   }
   try {
+    const inviterCode = typeof route.query.inviter_code === 'string'
+      ? route.query.inviter_code
+      : getAffiliateCode()
     await userAuthStore.register({
       email: email.value,
       password: password.value,
       code: emailVerificationEnabled.value ? code.value : '',
       agreement_accepted: agreed.value,
+      inviter_code: inviterCode || undefined,
     })
     router.push('/me/orders')
   } catch (err: any) {

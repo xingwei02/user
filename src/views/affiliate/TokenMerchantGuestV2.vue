@@ -267,7 +267,9 @@ const handlePrimaryAction = async () => {
   }
   opening.value = true
   try {
-    const inviterCode = typeof route.query.inviter_code === 'string' ? route.query.inviter_code : ''
+    const inviterCode = typeof route.query.inviter_code === 'string'
+      ? route.query.inviter_code
+      : getAffiliateCode()
     await affiliateAPI.open(inviterCode ? { inviter_code: inviterCode } : undefined)
     userAuthStore.syncUserProfile({ is_token_merchant: true, token_merchant_at: new Date().toISOString() })
     await router.push('/zhengye')
