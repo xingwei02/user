@@ -317,6 +317,16 @@ const buildBuiltinNavItems = (): NavItem[] => {
   return result
 }
 
+const canAccessAffiliateCenter = computed(() => userAuthStore.isAuthenticated && userAuthStore.isTokenMerchant)
+const canAccessAffiliateApply = computed(() => userAuthStore.isAuthenticated && !userAuthStore.isTokenMerchant)
+
+const canDisplayNavItem = (item: NavItem) => {
+  if (item.type !== 'route') return true
+  if (item.path === '/zhengye') return canAccessAffiliateCenter.value
+  if (item.path === '/token-merchant-v2') return canAccessAffiliateApply.value
+  return true
+}
+
 const menuItems = computed<NavItem[]>(() => {
   const items: NavItem[] = [
     { key: 'home', path: '/', label: 'nav.home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1', type: 'route', target: '_self' },
@@ -326,13 +336,13 @@ const menuItems = computed<NavItem[]>(() => {
   }
   items.push(...buildBuiltinNavItems())
   items.push(...buildCustomNavItems())
-  return items
+  return items.filter(canDisplayNavItem)
 })
 
 // Mobile drawer only shows items NOT in the bottom nav (Home, Products, Cart, Me are in bottom nav)
 const mobileDrawerItems = computed<NavItem[]>(() => {
   const items: NavItem[] = [...buildBuiltinNavItems(), ...buildCustomNavItems()]
-  return items
+  return items.filter(canDisplayNavItem)
 })
 
 const languages = [

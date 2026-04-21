@@ -25,6 +25,44 @@
             <h2>发条链接，两种赚法：</h2>
             <p>① 小伙伴买 Token，你拿钱。</p>
             <p>② 小伙伴也来卖，他每一单，你都分。</p>
+
+          <div class="card promo-card mb-20">
+            <div class="promo-card__block">
+              <h3>我的推广信息</h3>
+              <div class="promo-line">
+                <span class="promo-label">我的推广码</span>
+                <strong>{{ dashboard.affiliate_code || '--' }}</strong>
+              </div>
+              <div class="promo-line promo-line--column">
+                <span class="promo-label">我的推广链接</span>
+                <div class="promo-link-box">{{ promotionLinkText }}</div>
+              </div>
+              <button class="btn btn-primary btn-sm" @click="copyPromotionLink">复制推广链接</button>
+            </div>
+
+            <div class="promo-card__block">
+              <h3>上级联系方式</h3>
+              <div v-if="hasParentContact" class="parent-contact-info">
+                <div v-if="dashboard.parent_contact_qq" class="contact-item">
+                  <span class="contact-label">QQ：</span>
+                  <span class="contact-value">{{ dashboard.parent_contact_qq }}</span>
+                </div>
+                <div v-if="dashboard.parent_contact_wx" class="contact-item">
+                  <span class="contact-label">微信：</span>
+                  <span class="contact-value">{{ dashboard.parent_contact_wx }}</span>
+                </div>
+                <div v-if="dashboard.parent_contact_other" class="contact-item">
+                  <span class="contact-label">其它：</span>
+                  <span class="contact-value">{{ dashboard.parent_contact_other }}</span>
+                </div>
+                <div v-if="dashboard.parent_announcement" class="contact-announcement">
+                  <div class="announcement-label">公告：</div>
+                  <div class="announcement-content">{{ dashboard.parent_announcement }}</div>
+                </div>
+              </div>
+              <div v-else class="empty-tip">暂无上级联系方式</div>
+            </div>
+          </div>
           </div>
 
           <div class="grid-3 mb-20">
@@ -33,12 +71,13 @@
               <div class="stat-item">
                 <div class="label">当前比例</div>
                 <div class="value">{{ formatPercent(currentCommissionRate) }}</div>
+                <div class="sub text-gray">新加入伙伴优先按当前入门档 / 实际生效档位展示</div>
               </div>
               <div class="stat-item highlight">
                 <div class="label">最高可拿</div>
                 <div class="value">{{ formatPercent(dashboard.max_commission_rate) }}</div>
               </div>
-              <div class="tip">下一步怎么升级<br>{{ dashboard.upgrade_condition || '--' }}</div>
+              <div class="tip">下一步怎么升级<br>{{ nextUpgradeText }}</div>
             </div>
 
             <div class="card">
@@ -136,7 +175,7 @@
                 <span>→</span>
               </div>
               <div class="link-item" @click="currentMenu = 'settle'">
-                <span>伙伴结算</span>
+                <span>订单结算</span>
                 <span>→</span>
               </div>
             </div>
@@ -655,10 +694,10 @@
 
         <!-- 6. 伙伴结算 -->
         <div v-if="currentMenu === 'settle'">
-          <h2 class="page-title">伙伴结算</h2>
+          <h2 class="page-title">订单结算</h2>
           <div class="tabs mb-20">
-            <button class="tab active">我给下级结算</button>
-            <button class="tab">我收到的打款</button>
+            <button class="tab active">下级结算</button>
+            <button class="tab" disabled>我的结算（待资金口径确认）</button>
           </div>
 
           <div class="flex justify-between mb-20">
@@ -741,35 +780,87 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in filteredSettlementItems" :key="item.id">
-                  <td>
-                    <div class="flex items-center gap-10">
-                      <div class="avatar">{{ item.avatar }}</div>
-                      <div>
-                        <div>{{ item.email }}</div>
-                        <div class="text-sm text-gray">#{{ item.id }} · {{ item.code }}</div>
+                <template v-for="item in filteredSettlementItems" :key="item.id">
+                  <tr>
+                    <td>
+                      <div class="flex items-center gap-10">
+                        <div class="avatar">{{ item.avatar }}</div>
+                        <div>
+                          <div>{{ item.email }}</div>
+                          <div class="text-sm text-gray">#{{ item.id }} · {{ item.code }}</div>
+                        </div>
                       </div>
-                    </div>
-                    <div class="text-sm text-gray mt-5">{{ Number(item.self_orders) + Number(item.team_orders) > 0 ? '有结算数据' : '暂无订单' }}</div>
-                    <div class="text-sm text-gray">{{ item.direct_partners }} 个直属伙伴，{{ item.total_partners }} 个全部伙伴</div>
-                  </td>
-                  <td>{{ item.self_sales }}</td>
-                  <td>{{ item.team_sales }}</td>
-                  <td>{{ item.total_sales }}</td>
-                  <td class="red">{{ item.refund_amount }}</td>
-                  <td>{{ item.net_sales }}</td>
-                  <td>自己 {{ item.self_orders }} / 团队 {{ item.team_orders }}</td>
-                  <td>
-                    <div class="green">{{ item.net_settlement }}</div>
-                    <div class="text-sm text-gray">原始应结 {{ item.original_settlement }}</div>
-                    <div class="text-sm text-red">退款扣减 {{ item.refund_deduction }}</div>
-                    <div class="text-sm text-gray">已结 {{ item.settled_orders }} 单，待结 {{ item.pending_orders }} 单</div>
-                  </td>
-                  <td>
-                    <button class="btn btn-default btn-sm mb-5" @click="viewSettlementDetail(item.id, item.code)">查看明细</button>
-                    <button class="btn btn-primary btn-sm" :disabled="settlingPartnerId === item.id" @click="handleSettle(item.id)">{{ settlingPartnerId === item.id ? '结算中...' : '去结算' }}</button>
-                  </td>
-                </tr>
+                      <div class="text-sm text-gray mt-5">{{ Number(item.self_orders) + Number(item.team_orders) > 0 ? '有结算数据' : '暂无订单' }}</div>
+                      <div class="text-sm text-gray">{{ item.direct_partners }} 个直属伙伴，{{ item.total_partners }} 个全部伙伴</div>
+                    </td>
+                    <td>{{ item.self_sales }}</td>
+                    <td>{{ item.team_sales }}</td>
+                    <td>{{ item.total_sales }}</td>
+                    <td class="red">{{ item.refund_amount }}</td>
+                    <td>{{ item.net_sales }}</td>
+                    <td>自己 {{ item.self_orders }} / 团队 {{ item.team_orders }}</td>
+                    <td>
+                      <div class="green">{{ item.net_settlement }}</div>
+                      <div class="text-sm text-gray">原始应结 {{ item.original_settlement }}</div>
+                      <div class="text-sm text-red">退款扣减 {{ item.refund_deduction }}</div>
+                      <div class="text-sm text-gray">已结 {{ item.settled_orders }} 单，待结 {{ item.pending_orders }} 单</div>
+                    </td>
+                    <td>
+                      <button class="btn btn-default btn-sm mb-5" @click="toggleSettlementDetail(item.id)">{{ expandedSettlementId === item.id ? '收起明细' : '查看明细' }}</button>
+                      <button class="btn btn-primary btn-sm" :disabled="settlingPartnerId === item.id" @click="handleSettle(item.id)">{{ settlingPartnerId === item.id ? '结算中...' : '去结算' }}</button>
+                    </td>
+                  </tr>
+                  <tr v-if="expandedSettlementId === item.id" class="settlement-detail-row">
+                    <td colspan="9">
+                      <div class="settlement-detail-panel">
+                        <h4>{{ item.email }} 的订单明细</h4>
+                        <div class="text-sm text-gray mb-10">
+                          <!-- TODO: 需要后端接口 GET /api/v1/affiliate/settlement/:partner_id/orders 返回订单明细 -->
+                          以下为示例数据，实际需要后端接口支持
+                        </div>
+                        <table class="detail-table">
+                          <thead>
+                            <tr>
+                              <th>订单类型</th>
+                              <th>分佣层级</th>
+                              <th>结算状态</th>
+                              <th>订单时间</th>
+                              <th>订单号</th>
+                              <th>商品名称</th>
+                              <th>订单金额</th>
+                              <th>净应结金额</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td><span class="tag green">自己成交</span></td>
+                              <td>L1 直接推广</td>
+                              <td><span class="tag green">已结算</span></td>
+                              <td>2026-04-15 10:30</td>
+                              <td>ORD20260415001</td>
+                              <td>Token套餐A</td>
+                              <td>¥100.00</td>
+                              <td class="green">¥15.00</td>
+                            </tr>
+                            <tr>
+                              <td><span class="tag blue">团队成交</span></td>
+                              <td>L2 上级1</td>
+                              <td><span class="tag orange">未结算</span></td>
+                              <td>2026-04-15 14:20</td>
+                              <td>ORD20260415002</td>
+                              <td>Token套餐B</td>
+                              <td>¥200.00</td>
+                              <td class="green">¥10.00</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div class="text-sm text-gray mt-10">
+                          注：订单明细需要后端接口 <code>GET /api/v1/affiliate/settlement/:partner_id/orders</code> 返回完整数据
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
                 <tr v-if="!filteredSettlementItems.length">
                   <td colspan="9" class="text-center text-gray">暂无结算数据</td>
                 </tr>
@@ -906,42 +997,69 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in filteredPartners" :key="item.id">
-                  <td>
-                    <div class="flex items-center gap-10">
-                      <div class="avatar">{{ item.avatar }}</div>
-                      <div>
-                        <div>{{ item.email }}</div>
-                        <div class="text-sm text-gray">{{ item.code }} <span v-if="item.is_new" class="tag">新</span></div>
+                <template v-for="item in filteredPartners" :key="item.id">
+                  <tr>
+                    <td>
+                      <div class="flex items-center gap-10">
+                        <div class="avatar">{{ item.avatar }}</div>
+                        <div>
+                          <div>{{ item.email }}</div>
+                          <div class="text-sm text-gray">{{ item.code }} <span v-if="item.is_new" class="tag">新</span></div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="flex items-center gap-5">
-                      <div class="level-icon">{{ item.level_icon }}</div>
-                      <div>
-                        <div>{{ item.level_name }} · 每 ¥100 赚 ¥{{ formatMoney(item.rate) }}</div>
-                        <div class="text-sm text-gray">实际到账以"伙伴结算"为准</div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-5">
+                        <div class="level-icon">{{ item.level_icon }}</div>
+                        <div>
+                          <div>{{ item.level_name }} · 每 ¥100 赚 ¥{{ formatMoney(item.rate) }}</div>
+                          <div class="text-sm text-gray">实际到账以"伙伴结算"为准</div>
+                        </div>
                       </div>
-                    </div>
-                    <div class="flex items-center gap-5 mt-5">
-                      <input type="number" v-model.number="partnerRateDrafts[item.id]" style="width: 60px;">
-                      <span>%</span>
-                      <button class="btn btn-default btn-sm" :disabled="savingPartnerRateId === item.id" @click="savePartnerRate(item.id)">{{ savingPartnerRateId === item.id ? '保存中...' : '保存' }}</button>
-                    </div>
-                  </td>
-                  <td>{{ item.today_direct_sales }}</td>
-                  <td>{{ item.total_direct_sales }}</td>
-                  <td>{{ item.today_network_sales }}</td>
-                  <td>{{ item.total_network_sales }}</td>
-                  <td>{{ item.total_network_orders }}</td>
-                  <td>{{ item.today_settlement }}</td>
-                  <td>{{ item.total_settlement }}</td>
-                  <td><span class="tag" :class="item.group_visible ? 'green' : 'red'">{{ item.group_visible ? '显示' : '已屏蔽' }}</span></td>
-                  <td>
-                    <button class="btn btn-default btn-sm">结算明细</button>
-                  </td>
-                </tr>
+                      <div class="flex items-center gap-5 mt-5">
+                        <input type="number" v-model.number="partnerRateDrafts[item.id]" style="width: 60px;">
+                        <span>%</span>
+                        <button class="btn btn-default btn-sm" :disabled="savingPartnerRateId === item.id" @click="savePartnerRate(item.id)">{{ savingPartnerRateId === item.id ? '保存中...' : '保存' }}</button>
+                      </div>
+                    </td>
+                    <td>{{ item.today_direct_sales }}</td>
+                    <td>{{ item.total_direct_sales }}</td>
+                    <td>{{ item.today_network_sales }}</td>
+                    <td>{{ item.total_network_sales }}</td>
+                    <td>{{ item.total_network_orders }}</td>
+                    <td>{{ item.today_settlement }}</td>
+                    <td>{{ item.total_settlement }}</td>
+                    <td><span class="tag" :class="item.group_visible ? 'green' : 'red'">{{ item.group_visible ? '显示' : '已屏蔽' }}</span></td>
+                    <td>
+                      <button class="btn btn-default btn-sm" @click="togglePartnerDetail(item.id)">{{ expandedPartnerId === item.id ? '收起明细' : '查看明细' }}</button>
+                    </td>
+                  </tr>
+                  <tr v-if="expandedPartnerId === item.id" class="partner-detail-row">
+                    <td colspan="11">
+                      <div class="partner-detail-panel">
+                        <div class="partner-detail-grid">
+                          <div class="partner-detail-item">
+                            <div class="label">今日直销</div>
+                            <div class="value">{{ item.today_direct_sales }}</div>
+                          </div>
+                          <div class="partner-detail-item">
+                            <div class="label">今日网络销量</div>
+                            <div class="value">{{ item.today_network_sales }}</div>
+                          </div>
+                          <div class="partner-detail-item">
+                            <div class="label">今日应分结算</div>
+                            <div class="value orange">{{ item.today_settlement }}</div>
+                          </div>
+                          <div class="partner-detail-item">
+                            <div class="label">累计应分结算</div>
+                            <div class="value">{{ item.total_settlement }}</div>
+                          </div>
+                        </div>
+                        <div class="text-sm text-gray">当前为低风险版本：先展示现有接口已返回的当天/累计核心数据，复杂团队分佣明细待后端接口补齐后再升级。</div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
                 <tr v-if="!filteredPartners.length">
                   <td colspan="11" class="text-center text-gray">暂无伙伴数据</td>
                 </tr>
@@ -1152,6 +1270,81 @@
             </div>
           </div>
         </div>
+
+        <div v-if="selectedOrderDetail" class="detail-modal-overlay" @click="closeOrderDetail">
+          <div class="detail-modal" @click.stop>
+            <div class="detail-modal__header">
+              <h3>订单详情</h3>
+              <button class="btn btn-default btn-sm" @click="closeOrderDetail">关闭</button>
+            </div>
+            <div class="detail-modal__grid">
+              <div class="detail-modal__item"><span>订单号</span><strong>{{ selectedOrderDetail.order_no }}</strong></div>
+              <div class="detail-modal__item"><span>伙伴渠道</span><strong>{{ selectedOrderDetail.channel }}</strong></div>
+              <div class="detail-modal__item"><span>商品</span><strong>{{ selectedOrderDetail.product_name }}</strong></div>
+              <div class="detail-modal__item"><span>实付金额</span><strong>¥{{ selectedOrderDetail.paid_amount }}</strong></div>
+              <div class="detail-modal__item"><span>订单状态</span><strong>{{ selectedOrderDetail.status }}</strong></div>
+              <div class="detail-modal__item"><span>成交时间</span><strong>{{ selectedOrderDetail.created_at }}</strong></div>
+            </div>
+            <div class="detail-modal__commission">
+              <h4>佣金信息</h4>
+              <div class="detail-modal__grid">
+                <div class="detail-modal__item"><span>原始金额</span><strong>¥{{ selectedOrderDetail.paid_amount }}</strong></div>
+                <div class="detail-modal__item"><span>最终金额</span><strong>¥{{ selectedOrderDetail.paid_amount }}</strong></div>
+                <div class="detail-modal__item"><span>渠道让利</span><strong class="orange">¥0.00</strong></div>
+              </div>
+              <div class="detail-modal__grid mt-10">
+                <div class="detail-modal__item"><span>伙伴佣金</span><strong>¥{{ selectedOrderDetail.partner_commission }}</strong></div>
+                <div class="detail-modal__item"><span>我的佣金</span><strong class="green">¥{{ selectedOrderDetail.my_commission }}</strong></div>
+                <div class="detail-modal__item"><span>推荐人成本</span><strong class="orange">¥{{ selectedOrderDetail.referrer_cost }}</strong></div>
+              </div>
+            </div>
+
+            <div class="detail-modal__breakdown">
+              <h4>分佣归属层级明细</h4>
+              <div class="text-sm text-gray mb-10">
+                <!-- TODO: 需要后端接口 GET /api/v1/affiliate/orders/:order_id/detail 返回分佣层级明细 -->
+                以下为示例数据，实际需要后端接口支持
+              </div>
+              <table class="breakdown-table">
+                <thead>
+                  <tr>
+                    <th>层级</th>
+                    <th>角色</th>
+                    <th>分佣比例</th>
+                    <th>净佣金</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>L1</td>
+                    <td>直接推广者</td>
+                    <td>{{ selectedOrderDetail.partner_commission ? '15%' : '--' }}</td>
+                    <td class="green">¥{{ selectedOrderDetail.partner_commission || '0.00' }}</td>
+                    <td><span class="tag green">已结算</span></td>
+                  </tr>
+                  <tr>
+                    <td>L2</td>
+                    <td>上级1</td>
+                    <td>{{ selectedOrderDetail.my_commission ? '5%' : '--' }}</td>
+                    <td class="green">¥{{ selectedOrderDetail.my_commission || '0.00' }}</td>
+                    <td><span class="tag green">已结算</span></td>
+                  </tr>
+                  <tr v-if="selectedOrderDetail.referrer_cost && Number(selectedOrderDetail.referrer_cost) > 0">
+                    <td>L3</td>
+                    <td>推荐人</td>
+                    <td>3%</td>
+                    <td class="orange">¥{{ selectedOrderDetail.referrer_cost }}</td>
+                    <td><span class="tag green">已结算</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="text-sm text-gray mt-10">
+                注：分佣层级明细需要后端接口 <code>GET /api/v1/affiliate/orders/:order_id/detail</code> 返回完整的 commission_breakdown 数据
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -1175,6 +1368,10 @@ type DashboardData = {
   total_orders?: number
   total_sales?: string
   discount_rate?: number
+  parent_contact_qq?: string
+  parent_contact_wx?: string
+  parent_contact_other?: string
+  parent_announcement?: string
 }
 
 type StatsTrendItem = {
@@ -1509,7 +1706,7 @@ const menuList = [
   { key: 'data', name: '详细数据' },
   { key: 'level', name: '伙伴等级返佣' },
   { key: 'contact', name: '伙伴联系资料' },
-  { key: 'settle', name: '伙伴结算' },
+  { key: 'settle', name: '订单结算' },
   { key: 'team', name: '团队结构' },
   { key: 'partner', name: '我的伙伴' },
   { key: 'order', name: '订单记录' },
@@ -1614,8 +1811,49 @@ const formatMoney = (value?: number | string) => {
 const statsTrend = computed(() => stats.value.trend ?? [])
 const currentCommissionRate = computed(() => {
   if (typeof dashboard.value.my_commission_rate === 'number') return dashboard.value.my_commission_rate
+  if (typeof levels.value.entry_rate === 'number' && levels.value.entry_rate > 0) return levels.value.entry_rate
   if (typeof stats.value.commission_rate === 'number') return stats.value.commission_rate
-  return undefined
+  return 0
+})
+
+const nextUpgradeText = computed(() => {
+  if (dashboard.value.upgrade_condition) return dashboard.value.upgrade_condition
+
+  const orderedLevels = (localLevels.value.length ? localLevels.value : levels.value.levels)
+    .slice()
+    .sort((a, b) => Number(a.rate ?? 0) - Number(b.rate ?? 0))
+
+  const currentRate = Number(currentCommissionRate.value ?? 0)
+  const nextLevel = orderedLevels.find((level) => Number(level.rate ?? 0) > currentRate)
+  if (!nextLevel) return '当前已是最高档，后续如需更高档位请先在「伙伴等级返佣」补充设置'
+
+  const rule = normalizeRule(nextLevel)
+  if (!rule.enabled) {
+    return `下一档：${nextLevel.name}（每 ¥100 返佣 ¥${formatMoney(nextLevel.rate)}），暂未设置升级条件`
+  }
+
+  const metricText = rule.metric === 'orders'
+    ? `${rule.period === 'daily' ? '每日' : '每周'} ${Number(rule.targetValue || 0)} 单`
+    : `${rule.period === 'daily' ? '每日' : '每周'} ¥${formatMoney(rule.targetValue)}`
+
+  return `下一档：${nextLevel.name}；连续 ${rule.consecutiveDays} 天满足${metricText}`
+})
+
+const hasParentContact = computed(() => {
+  return !!(
+    dashboard.value.parent_contact_qq ||
+    dashboard.value.parent_contact_wx ||
+    dashboard.value.parent_contact_other ||
+    dashboard.value.parent_announcement
+  )
+})
+
+const promotionLinkText = computed(() => {
+  const code = dashboard.value.affiliate_code
+  if (!code) return dashboard.value.promotion_path || '--'
+  const discountRate = Number(discountSettings.value.discount_rate ?? 0)
+  const base = `${window.location.origin}/?aff=${code}&inviter_code=${code}`
+  return discountRate > 0 ? `${base}&discount=${discountRate}` : base
 })
 const normalizedDiscountRate = computed(() => {
   const raw = Number(discountSettings.value.discount_rate ?? 0)
@@ -2187,13 +2425,7 @@ const changeStatsPeriod = async (period: StatsPeriod) => {
 }
 
 const copyPromotionLink = async () => {
-  const code = dashboard.value.affiliate_code
-  // 构建完整推广链接：带 aff（推广码，用于注册绑定上级）和 discount（折扣率，让客户看到优惠）
-  const discountRate = Number(discountSettings.value.discount_rate ?? 0)
-  const base = window.location.origin + '/?aff=' + (code || '') + '&inviter_code=' + (code || '')
-  const fullLink = discountRate > 0 ? base + '&discount=' + discountRate : base
-  const text = code ? fullLink : (dashboard.value.promotion_path || '')
-
+  const text = promotionLinkText.value === '--' ? '' : promotionLinkText.value
   if (!text) return
 
   try {
@@ -2255,20 +2487,25 @@ const handleGroupImageUpload = async (event: Event) => {
   }
 }
 
-// 查看订单详情（无独立详情页，用 alert 展示关键字段）
+const selectedOrderDetail = ref<OrderItem | null>(null)
+const expandedPartnerId = ref<number | null>(null)
+const expandedSettlementId = ref<number | null>(null)
+
+const togglePartnerDetail = (partnerId: number) => {
+  expandedPartnerId.value = expandedPartnerId.value === partnerId ? null : partnerId
+}
+
+const toggleSettlementDetail = (settlementId: number) => {
+  expandedSettlementId.value = expandedSettlementId.value === settlementId ? null : settlementId
+}
+
+// 查看订单详情（低风险版本：升级为正式弹层）
 const viewOrderDetail = (item: OrderItem) => {
-  const lines = [
-    `订单号：${item.order_no}`,
-    `伙伴渠道：${item.channel}`,
-    `商品：${item.product_name}`,
-    `实付金额：¥${item.paid_amount}`,
-    `订单状态：${item.status}`,
-    `伙伴佣金：¥${item.partner_commission}`,
-    `我的佣金：¥${item.my_commission}`,
-    `推荐人成本：¥${item.referrer_cost}`,
-    `成交时间：${item.created_at}`,
-  ]
-  window.alert(lines.join('\n'))
+  selectedOrderDetail.value = item
+}
+
+const closeOrderDetail = () => {
+  selectedOrderDetail.value = null
 }
 
 // 查看结算明细：跳转到订单记录页并按伙伴筛选
@@ -2304,7 +2541,7 @@ const exportSettlementExcel = () => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `伙伴结算_${settleDate.value}.csv`
+  a.download = `订单结算_${settleDate.value}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -3015,6 +3252,185 @@ body {
   text-align: center;
   font-size: 13px;
   color: #999;
+}
+
+.promo-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.promo-card__block {
+  min-width: 0;
+}
+
+.promo-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.promo-line--column {
+  display: block;
+}
+
+.promo-label {
+  font-size: 13px;
+  color: #666;
+}
+
+.promo-link-box {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8f9fa;
+  word-break: break-all;
+  color: #333;
+  font-size: 13px;
+}
+
+.parent-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.contact-label {
+  font-weight: 600;
+  color: #495057;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.contact-value {
+  color: #212529;
+  word-break: break-word;
+}
+
+.contact-announcement {
+  padding: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+}
+
+.announcement-label {
+  font-weight: 600;
+  color: #856404;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.announcement-content {
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.partner-detail-row td {
+  background: #fafbff;
+}
+
+.partner-detail-panel {
+  padding: 8px 0;
+}
+
+.partner-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.partner-detail-item {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.partner-detail-item .label {
+  color: #666;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.partner-detail-item .value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.detail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.detail-modal {
+  width: min(920px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.detail-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.detail-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.detail-modal__item {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-modal__item span {
+  color: #666;
+  font-size: 12px;
+}
+
+.detail-modal__commission {
+  margin-top: 16px;
+}
+
+@media (max-width: 960px) {
+  .promo-card,
+  .partner-detail-grid,
+  .detail-modal__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 团队总结 */
