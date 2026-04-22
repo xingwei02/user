@@ -696,9 +696,11 @@
         <div v-if="currentMenu === 'settle'">
           <h2 class="page-title">订单结算</h2>
           <div class="tabs mb-20">
-            <button class="tab active">下级结算</button>
-            <button class="tab" disabled>我的结算（待资金口径确认）</button>
+            <button class="tab" :class="{ active: settlementTab === 'partner' }" @click="settlementTab = 'partner'">下级结算</button>
+            <button class="tab" :class="{ active: settlementTab === 'mine' }" @click="settlementTab = 'mine'">我的结算</button>
           </div>
+
+          <template v-if="settlementTab === 'partner'">
 
           <div class="flex justify-between mb-20">
             <p>查看团队伙伴按天结算和累计结算的树状汇总</p>
@@ -814,48 +816,48 @@
                     <td colspan="9">
                       <div class="settlement-detail-panel">
                         <h4>{{ item.email }} 的订单明细</h4>
-                        <div class="text-sm text-gray mb-10">
-                          <!-- TODO: 需要后端接口 GET /api/v1/affiliate/settlement/:partner_id/orders 返回订单明细 -->
-                          以下为示例数据，实际需要后端接口支持
+                        <div class="detail-toolbar mb-10">
+                          <div class="text-sm text-gray">展示该伙伴在所选日期下的自己成交 + 团队成交订单</div>
+                          <button class="btn btn-default btn-sm" :disabled="settlementDetailLoadingId === item.id" @click="loadSettlementDetail(item.id, true)">{{ settlementDetailLoadingId === item.id ? '加载中...' : '刷新明细' }}</button>
                         </div>
                         <table class="detail-table">
                           <thead>
                             <tr>
                               <th>订单类型</th>
-                              <th>分佣层级</th>
+                              <th>最终成交渠道</th>
                               <th>结算状态</th>
                               <th>订单时间</th>
                               <th>订单号</th>
                               <th>商品名称</th>
-                              <th>订单金额</th>
-                              <th>净应结金额</th>
+                              <th>原价/实付</th>
+                              <th>伙伴佣金/我的佣金/上级成本</th>
                             </tr>
                           </thead>
                           <tbody>
-                            <tr>
-                              <td><span class="tag green">自己成交</span></td>
-                              <td>L1 直接推广</td>
-                              <td><span class="tag green">已结算</span></td>
-                              <td>2026-04-15 10:30</td>
-                              <td>ORD20260415001</td>
-                              <td>Token套餐A</td>
-                              <td>¥100.00</td>
-                              <td class="green">¥15.00</td>
+                            <tr v-for="detail in settlementDetailMap[item.id]?.items || []" :key="`settlement-${item.id}-${detail.order_id}`">
+                              <td><span class="tag" :class="detail.is_self ? 'green' : 'blue'">{{ detail.is_self ? '自己成交' : '团队成交' }}</span></td>
+                              <td>{{ detail.final_channel || '-' }}</td>
+                              <td><span class="tag" :class="detail.is_settled ? 'green' : 'orange'">{{ detail.is_settled ? '已结算' : '待结算' }}</span></td>
+                              <td>{{ detail.created_at }}</td>
+                              <td>{{ detail.order_no }}</td>
+                              <td>{{ detail.product_name }}</td>
+                              <td>
+                                <div>¥{{ detail.original_amount }} → ¥{{ detail.final_amount }}</div>
+                                <div class="text-sm text-orange">让利 ¥{{ detail.channel_discount }}</div>
+                              </td>
+                              <td>
+                                <div>伙伴：¥{{ detail.partner_commission }}</div>
+                                <div class="green">我拿：¥{{ detail.my_commission }}</div>
+                                <div class="text-sm text-orange">上级成本：¥{{ detail.referrer_cost }}</div>
+                              </td>
                             </tr>
-                            <tr>
-                              <td><span class="tag blue">团队成交</span></td>
-                              <td>L2 上级1</td>
-                              <td><span class="tag orange">未结算</span></td>
-                              <td>2026-04-15 14:20</td>
-                              <td>ORD20260415002</td>
-                              <td>Token套餐B</td>
-                              <td>¥200.00</td>
-                              <td class="green">¥10.00</td>
+                            <tr v-if="!(settlementDetailMap[item.id]?.items || []).length && settlementDetailLoadingId !== item.id">
+                              <td colspan="8" class="text-center text-gray">暂无明细</td>
                             </tr>
                           </tbody>
                         </table>
-                        <div class="text-sm text-gray mt-10">
-                          注：订单明细需要后端接口 <code>GET /api/v1/affiliate/settlement/:partner_id/orders</code> 返回完整数据
+                        <div class="text-sm text-gray mt-10" v-if="settlementDetailMap[item.id]">
+                          共 {{ settlementDetailMap[item.id]?.total || 0 }} 条，当前第 {{ settlementDetailMap[item.id]?.page || 1 }} 页
                         </div>
                       </div>
                     </td>
@@ -875,6 +877,124 @@
               </div>
             </div>
           </div>
+          </template>
+
+          <template v-else>
+            <div class="alert alert-blue mb-20">
+              <h4>我的结算</h4>
+              <p>这里展示你的余额总览、余额流水，并提供佣金转余额入口。当前后端已支持余额、流水、转余额接口。</p>
+            </div>
+
+            <div class="grid-4 mb-20">
+              <div class="card">
+                <div class="label">可用余额</div>
+                <div class="value green">{{ myBalance.balance || '0.00' }}</div>
+              </div>
+              <div class="card">
+                <div class="label">冻结余额</div>
+                <div class="value orange">{{ myBalance.frozen_balance || '0.00' }}</div>
+              </div>
+              <div class="card">
+                <div class="label">待结算余额</div>
+                <div class="value">{{ myBalance.pending_balance || '0.00' }}</div>
+              </div>
+              <div class="card">
+                <div class="label">累计收入 / 累计提现</div>
+                <div class="value">{{ myBalance.total_income || '0.00' }}</div>
+                <div class="sub">已提：{{ myBalance.total_withdraw || '0.00' }}</div>
+              </div>
+            </div>
+
+            <div class="grid-2 mb-20">
+              <div class="card">
+                <h3>佣金转余额</h3>
+                <div class="card-header" style="padding:0 0 10px;border:none;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                  <div class="text-sm text-gray">选择“可转余额”的佣金后批量转入余额。</div>
+                  <button class="btn btn-default btn-sm" :disabled="transferringBalance" @click="loadBalanceData">刷新佣金</button>
+                </div>
+                <div class="detail-toolbar mb-10">
+                  <div class="text-sm text-gray">已选 {{ selectedTransferCommissionIDs.length }} 笔，合计 <span class="green">¥{{ selectedTransferCommissionAmount }}</span></div>
+                  <div class="flex gap-10">
+                    <button class="btn btn-default btn-sm" :disabled="!transferableCommissions.items.length || transferringBalance" @click="toggleSelectAllTransferable(true)">全选</button>
+                    <button class="btn btn-default btn-sm" :disabled="!transferableCommissions.items.length || transferringBalance" @click="toggleSelectAllTransferable(false)">反选</button>
+                  </div>
+                </div>
+                <table v-if="transferableCommissions.items.length" class="detail-table mb-15">
+                  <thead>
+                    <tr>
+                      <th style="width:56px;">选择</th>
+                      <th>订单号</th>
+                      <th>商品</th>
+                      <th>佣金</th>
+                      <th>可转时间</th>
+                      <th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in transferableCommissions.items" :key="`transferable-${item.id}`">
+                      <td>
+                        <input
+                          type="checkbox"
+                          :checked="selectedTransferCommissionIDs.includes(item.id)"
+                          :disabled="!item.can_transfer || transferringBalance"
+                          @change="toggleTransferCommission(item.id)"
+                        >
+                      </td>
+                      <td>
+                        <div>{{ item.order_no || '-' }}</div>
+                        <div class="text-sm text-gray">佣金ID：{{ item.id }}</div>
+                      </td>
+                      <td>{{ item.product_name || '-' }}</td>
+                      <td class="green">¥{{ item.commission_amount }}</td>
+                      <td>{{ item.available_at || item.created_at || '-' }}</td>
+                      <td><span class="tag" :class="item.can_transfer ? 'green' : 'orange'">{{ item.can_transfer ? '可转余额' : (item.status || '不可转') }}</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-else class="text-sm text-gray mb-15">暂无可转余额佣金</div>
+                <div class="form-item">
+                  <label>转入金额</label>
+                  <input :value="selectedTransferCommissionAmount" type="text" disabled>
+                </div>
+                <div class="form-item">
+                  <label>邮箱验证码（如后端校验开启）</label>
+                  <input v-model="transferForm.verify_code" type="text" placeholder="输入验证码">
+                </div>
+                <div class="text-sm text-gray mb-10">说明：已转余额的佣金后续退款不自动回滚，按人工处理；未转余额佣金仍由后端退款逻辑处理。</div>
+                <button class="btn btn-primary btn-block" :disabled="transferringBalance || !selectedTransferCommissionIDs.length" @click="handleTransferToBalance">{{ transferringBalance ? '转入中...' : `佣金转余额（${selectedTransferCommissionIDs.length}笔）` }}</button>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <h3>余额流水</h3>
+                  <button class="btn btn-default btn-sm" @click="loadBalanceData">刷新</button>
+                </div>
+                <table class="detail-table">
+                  <thead>
+                    <tr>
+                      <th>时间</th>
+                      <th>类型</th>
+                      <th>变动</th>
+                      <th>变动前 / 后</th>
+                      <th>备注</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="log in balanceLogs.items" :key="`balance-log-${log.id}`">
+                      <td>{{ log.created_at }}</td>
+                      <td>{{ log.type || '-' }}</td>
+                      <td :class="Number(log.amount) >= 0 ? 'green' : 'orange'">{{ Number(log.amount) >= 0 ? '+' : '' }}{{ log.amount }}</td>
+                      <td>{{ log.balance_before }} → {{ log.balance_after }}</td>
+                      <td>{{ log.remark || log.related_type || '-' }}</td>
+                    </tr>
+                    <tr v-if="!balanceLogs.items.length">
+                      <td colspan="5" class="text-center text-gray">暂无余额流水</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- 7. 团队结构 -->
@@ -1037,6 +1157,10 @@
                   <tr v-if="expandedPartnerId === item.id" class="partner-detail-row">
                     <td colspan="11">
                       <div class="partner-detail-panel">
+                        <div class="detail-toolbar mb-10">
+                          <div class="text-sm text-gray">查看该伙伴在选定日期内的个人订单与团队订单</div>
+                          <button class="btn btn-default btn-sm" :disabled="partnerDetailLoadingId === item.id" @click="loadPartnerDetail(item.id, true)">{{ partnerDetailLoadingId === item.id ? '加载中...' : '刷新明细' }}</button>
+                        </div>
                         <div class="partner-detail-grid">
                           <div class="partner-detail-item">
                             <div class="label">今日直销</div>
@@ -1055,7 +1179,38 @@
                             <div class="value">{{ item.total_settlement }}</div>
                           </div>
                         </div>
-                        <div class="text-sm text-gray">当前为低风险版本：先展示现有接口已返回的当天/累计核心数据，复杂团队分佣明细待后端接口补齐后再升级。</div>
+                        <table class="detail-table mt-10">
+                          <thead>
+                            <tr>
+                              <th>订单类型</th>
+                              <th>订单号</th>
+                              <th>商品</th>
+                              <th>最终渠道</th>
+                              <th>原价/实付</th>
+                              <th>让利</th>
+                              <th>应分结算</th>
+                              <th>时间</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="detail in partnerDetailMap[item.id]?.items || []" :key="`partner-${item.id}-${detail.order_id}`">
+                              <td><span class="tag" :class="detail.is_self ? 'green' : 'blue'">{{ detail.is_self ? '自己成交' : '团队成交' }}</span></td>
+                              <td>{{ detail.order_no }}</td>
+                              <td>{{ detail.product_name }}</td>
+                              <td>{{ detail.final_channel || '-' }}</td>
+                              <td>¥{{ detail.original_amount }} / ¥{{ detail.final_amount }}</td>
+                              <td class="text-orange">¥{{ detail.channel_discount }}</td>
+                              <td>
+                                <div>伙伴：¥{{ detail.partner_commission }}</div>
+                                <div class="green">我拿：¥{{ detail.my_commission }}</div>
+                              </td>
+                              <td>{{ detail.created_at }}</td>
+                            </tr>
+                            <tr v-if="!(partnerDetailMap[item.id]?.items || []).length && partnerDetailLoadingId !== item.id">
+                              <td colspan="8" class="text-center text-gray">暂无订单明细</td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                     </td>
                   </tr>
@@ -1288,9 +1443,9 @@
             <div class="detail-modal__commission">
               <h4>佣金信息</h4>
               <div class="detail-modal__grid">
-                <div class="detail-modal__item"><span>原始金额</span><strong>¥{{ selectedOrderDetail.paid_amount }}</strong></div>
-                <div class="detail-modal__item"><span>最终金额</span><strong>¥{{ selectedOrderDetail.paid_amount }}</strong></div>
-                <div class="detail-modal__item"><span>渠道让利</span><strong class="orange">¥0.00</strong></div>
+                <div class="detail-modal__item"><span>原始金额</span><strong>¥{{ orderCommissionDetail?.original_amount || selectedOrderDetail.paid_amount }}</strong></div>
+                <div class="detail-modal__item"><span>最终金额</span><strong>¥{{ orderCommissionDetail?.final_amount || selectedOrderDetail.paid_amount }}</strong></div>
+                <div class="detail-modal__item"><span>渠道让利</span><strong class="orange">¥{{ orderCommissionDetail?.channel_discount || '0.00' }}</strong></div>
               </div>
               <div class="detail-modal__grid mt-10">
                 <div class="detail-modal__item"><span>伙伴佣金</span><strong>¥{{ selectedOrderDetail.partner_commission }}</strong></div>
@@ -1301,9 +1456,9 @@
 
             <div class="detail-modal__breakdown">
               <h4>分佣归属层级明细</h4>
-              <div class="text-sm text-gray mb-10">
-                <!-- TODO: 需要后端接口 GET /api/v1/affiliate/orders/:order_id/detail 返回分佣层级明细 -->
-                以下为示例数据，实际需要后端接口支持
+              <div class="detail-toolbar mb-10">
+                <div class="text-sm text-gray">最终成交渠道：{{ orderCommissionDetail?.final_channel || selectedOrderDetail.channel }}</div>
+                <button class="btn btn-default btn-sm" :disabled="orderCommissionLoading" @click="reloadSelectedOrderCommissionDetail">{{ orderCommissionLoading ? '加载中...' : '刷新层级' }}</button>
               </div>
               <table class="breakdown-table">
                 <thead>
@@ -1316,31 +1471,20 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>L1</td>
-                    <td>直接推广者</td>
-                    <td>{{ selectedOrderDetail.partner_commission ? '15%' : '--' }}</td>
-                    <td class="green">¥{{ selectedOrderDetail.partner_commission || '0.00' }}</td>
-                    <td><span class="tag green">已结算</span></td>
+                  <tr v-for="layer in orderCommissionDetail?.layers || []" :key="`layer-${layer.level}-${layer.user_id}`">
+                    <td>L{{ layer.level }}</td>
+                    <td>{{ formatCommissionRole(layer.role, layer.display_name) }}</td>
+                    <td>{{ formatPercent(layer.commission_rate) }}</td>
+                    <td :class="Number(layer.commission_amount) >= 0 ? 'green' : 'orange'">¥{{ layer.commission_amount }}</td>
+                    <td><span class="tag" :class="isPositiveCommissionStatus(layer.status) ? 'green' : 'orange'">{{ layer.status || 'unknown' }}</span></td>
                   </tr>
-                  <tr>
-                    <td>L2</td>
-                    <td>上级1</td>
-                    <td>{{ selectedOrderDetail.my_commission ? '5%' : '--' }}</td>
-                    <td class="green">¥{{ selectedOrderDetail.my_commission || '0.00' }}</td>
-                    <td><span class="tag green">已结算</span></td>
-                  </tr>
-                  <tr v-if="selectedOrderDetail.referrer_cost && Number(selectedOrderDetail.referrer_cost) > 0">
-                    <td>L3</td>
-                    <td>推荐人</td>
-                    <td>3%</td>
-                    <td class="orange">¥{{ selectedOrderDetail.referrer_cost }}</td>
-                    <td><span class="tag green">已结算</span></td>
+                  <tr v-if="!(orderCommissionDetail?.layers || []).length && !orderCommissionLoading">
+                    <td colspan="5" class="text-center text-gray">暂无分佣层级数据</td>
                   </tr>
                 </tbody>
               </table>
-              <div class="text-sm text-gray mt-10">
-                注：分佣层级明细需要后端接口 <code>GET /api/v1/affiliate/orders/:order_id/detail</code> 返回完整的 commission_breakdown 数据
+              <div class="text-sm text-gray mt-10" v-if="orderCommissionDetail">
+                订单状态：{{ orderCommissionDetail.status || selectedOrderDetail.status }}，成交时间：{{ orderCommissionDetail.created_at || selectedOrderDetail.created_at }}
               </div>
             </div>
           </div>
@@ -1541,7 +1685,32 @@ type SettlementData = {
   page_size: number
 }
 
+type PartnerOrderDetailItem = {
+  order_id: number
+  order_no: string
+  product_name: string
+  original_amount: string
+  final_amount: string
+  channel_discount: string
+  final_channel: string
+  partner_commission: string
+  my_commission: string
+  referrer_cost: string
+  status: string
+  is_settled: boolean
+  is_self: boolean
+  created_at: string
+}
+
+type PartnerOrderDetailData = {
+  items: PartnerOrderDetailItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
 type OrderItem = {
+  order_id: number
   order_no: string
   channel: string
   product_name: string
@@ -1551,6 +1720,57 @@ type OrderItem = {
   my_commission: string
   referrer_cost: string
   created_at: string
+}
+
+type OrderCommissionLayerItem = {
+  level: number
+  user_id: number
+  display_name: string
+  role: string
+  commission_rate: number
+  commission_amount: string
+  status: string
+}
+
+type OrderCommissionDetailData = {
+  order_id: number
+  order_no: string
+  product_name: string
+  original_amount: string
+  final_amount: string
+  channel_discount: string
+  final_channel: string
+  status: string
+  created_at: string
+  layers: OrderCommissionLayerItem[]
+}
+
+type BalanceData = {
+  user_id?: number
+  balance?: string | number
+  frozen_balance?: string | number
+  pending_balance?: string | number
+  total_income?: string | number
+  total_withdraw?: string | number
+}
+
+type BalanceLogItem = {
+  id: number
+  type: string
+  amount: string
+  balance_before: string
+  balance_after: string
+  related_type: string
+  related_id: number
+  remark: string
+  created_at: string
+}
+
+type BalanceLogsData = {
+  items: BalanceLogItem[]
+  total: number
+  page: number
+  page_size: number
 }
 
 type StatsPeriod = '7d' | '30d' | '180d'
@@ -1676,7 +1896,28 @@ const settlement = ref<SettlementData>({
   page: 1,
   page_size: 20,
 })
+const settlementTab = ref<'partner' | 'mine'>('partner')
 const orders = ref<OrderItem[]>([])
+const partnerDetailMap = ref<Record<number, PartnerOrderDetailData>>({})
+const settlementDetailMap = ref<Record<number, PartnerOrderDetailData>>({})
+const partnerDetailLoadingId = ref<number | null>(null)
+const settlementDetailLoadingId = ref<number | null>(null)
+const orderCommissionDetail = ref<OrderCommissionDetailData | null>(null)
+const orderCommissionLoading = ref(false)
+const myBalance = ref<BalanceData>({
+  balance: '0.00',
+  frozen_balance: '0.00',
+  pending_balance: '0.00',
+  total_income: '0.00',
+  total_withdraw: '0.00',
+})
+const balanceLogs = ref<BalanceLogsData>({ items: [], total: 0, page: 1, page_size: 20 })
+const transferableCommissions = ref<any>({ items: [], total: 0, page: 1, page_size: 100 })
+const selectedTransferCommissionIDs = ref<number[]>([])
+const transferForm = ref({
+  verify_code: '',
+})
+const transferringBalance = ref(false)
 const savingContact = ref(false)
 const savingDiscount = ref(false)
 const savingLevels = ref(false)
@@ -1808,6 +2049,13 @@ const formatMoney = (value?: number | string) => {
   return '--'
 }
 
+const formatCommissionRole = (role?: string, name?: string) => {
+  const roleText = role === 'direct' ? '直接推广者' : role === 'indirect' ? '上级分佣' : role || '分佣角色'
+  return name ? `${roleText} · ${name}` : roleText
+}
+
+const isPositiveCommissionStatus = (status?: string) => ['available', 'withdrawn', 'paid', 'settled'].includes(String(status || '').toLowerCase())
+
 const statsTrend = computed(() => stats.value.trend ?? [])
 const currentCommissionRate = computed(() => {
   if (typeof dashboard.value.my_commission_rate === 'number') return dashboard.value.my_commission_rate
@@ -1934,6 +2182,14 @@ const filteredOrders = computed(() => {
     return matchKeyword && matchStatus && matchSource
   })
 })
+const selectedTransferCommissionAmount = computed(() =>
+  selectedTransferCommissionIDs.value
+    .reduce((sum, id) => {
+      const matched = transferableCommissions.value.items.find((item: any) => Number(item.id) === Number(id))
+      return sum + Number(matched?.commission_amount || 0)
+    }, 0)
+    .toFixed(2)
+)
 
 const getLevelTheme = (level: Pick<LevelItem, 'style' | 'is_entry'>): LevelTheme => {
   if (level.is_entry) return bronzeTheme
@@ -2122,6 +2378,135 @@ const loadOrders = async (page = 1) => {
     orderTotal.value = (res as any)?.total ?? orders.value.length
   } catch (error) {
     console.error('加载 orders 失败:', error)
+  }
+}
+
+const loadPartnerDetail = async (partnerId: number, force = false) => {
+  if (!partnerId) return
+  if (!force && partnerDetailMap.value[partnerId]) return
+  try {
+    partnerDetailLoadingId.value = partnerId
+    partnerDetailMap.value = {
+      ...partnerDetailMap.value,
+      [partnerId]: await zhengyeAPI.getPartnerOrdersByDate(partnerId, {
+        start_date: settleDate.value,
+        end_date: settleDate.value,
+        page: 1,
+        page_size: 20,
+      }),
+    }
+  } catch (error) {
+    console.error('加载伙伴明细失败:', error)
+    window.alert('加载伙伴订单明细失败，请稍后重试')
+  } finally {
+    partnerDetailLoadingId.value = null
+  }
+}
+
+const loadSettlementDetail = async (partnerId: number, force = false) => {
+  if (!partnerId) return
+  if (!force && settlementDetailMap.value[partnerId]) return
+  try {
+    settlementDetailLoadingId.value = partnerId
+    settlementDetailMap.value = {
+      ...settlementDetailMap.value,
+      [partnerId]: await zhengyeAPI.getPartnerOrdersByDate(partnerId, {
+        start_date: settleDate.value,
+        end_date: settleDate.value,
+        ...(settlementKeyword.value ? { keyword: settlementKeyword.value } : {}),
+        page: 1,
+        page_size: 20,
+      }),
+    }
+  } catch (error) {
+    console.error('加载结算明细失败:', error)
+    window.alert('加载结算订单明细失败，请稍后重试')
+  } finally {
+    settlementDetailLoadingId.value = null
+  }
+}
+
+const loadBalanceData = async () => {
+  try {
+    const [balance, logs, commissions] = await Promise.all([
+      zhengyeAPI.getBalance(),
+      zhengyeAPI.getBalanceLogs({ page: 1, page_size: 20 }),
+      zhengyeAPI.getTransferableCommissions({ page: 1, page_size: 100 }),
+    ])
+    myBalance.value = balance
+    balanceLogs.value = logs
+    transferableCommissions.value = commissions
+    selectedTransferCommissionIDs.value = selectedTransferCommissionIDs.value.filter(id =>
+      commissions.items.some((item: any) => Number(item.id) === Number(id) && item.can_transfer)
+    )
+  } catch (error) {
+    console.error('加载余额数据失败:', error)
+    window.alert('加载余额数据失败，请稍后重试')
+  }
+}
+
+const toggleTransferCommission = (id: number) => {
+  if (!id) return
+  if (selectedTransferCommissionIDs.value.includes(id)) {
+    selectedTransferCommissionIDs.value = selectedTransferCommissionIDs.value.filter(item => item !== id)
+    return
+  }
+  selectedTransferCommissionIDs.value = [...selectedTransferCommissionIDs.value, id]
+}
+
+const toggleSelectAllTransferable = (checked: boolean) => {
+  const allIds = (transferableCommissions.value.items || [])
+    .filter((item: any) => item.can_transfer)
+    .map((item: any) => Number(item.id))
+  if (checked) {
+    selectedTransferCommissionIDs.value = allIds
+    return
+  }
+  selectedTransferCommissionIDs.value = allIds.filter((id: number) => !selectedTransferCommissionIDs.value.includes(id))
+}
+
+const handleTransferToBalance = async () => {
+  const commissionIDs = selectedTransferCommissionIDs.value.slice()
+  if (!commissionIDs.length) {
+    window.alert('请先勾选要转余额的佣金记录')
+    return
+  }
+
+  const amount = Number(selectedTransferCommissionAmount.value)
+  if (!amount || amount <= 0) {
+    window.alert('当前勾选佣金金额无效')
+    return
+  }
+
+  try {
+    transferringBalance.value = true
+    await zhengyeAPI.transferCommissionToBalance({
+      commission_ids: commissionIDs,
+      amount,
+      verify_code: transferForm.value.verify_code || undefined,
+    })
+    window.alert('佣金已提交转余额')
+    await loadBalanceData()
+    selectedTransferCommissionIDs.value = []
+    transferForm.value = { verify_code: '' }
+  } catch (error) {
+    console.error('佣金转余额失败:', error)
+    window.alert('佣金转余额失败，请检查勾选记录、金额和验证码后重试')
+  } finally {
+    transferringBalance.value = false
+  }
+}
+
+const reloadSelectedOrderCommissionDetail = async () => {
+  if (!selectedOrderDetail.value?.order_id) return
+  try {
+    orderCommissionLoading.value = true
+    orderCommissionDetail.value = await zhengyeAPI.getOrderCommissionDetail(selectedOrderDetail.value.order_id)
+  } catch (error) {
+    console.error('加载订单分佣详情失败:', error)
+    window.alert('加载订单分佣详情失败，请稍后重试')
+  } finally {
+    orderCommissionLoading.value = false
   }
 }
 
@@ -2493,26 +2878,23 @@ const expandedSettlementId = ref<number | null>(null)
 
 const togglePartnerDetail = (partnerId: number) => {
   expandedPartnerId.value = expandedPartnerId.value === partnerId ? null : partnerId
+  if (expandedPartnerId.value === partnerId) loadPartnerDetail(partnerId)
 }
 
 const toggleSettlementDetail = (settlementId: number) => {
   expandedSettlementId.value = expandedSettlementId.value === settlementId ? null : settlementId
+  if (expandedSettlementId.value === settlementId) loadSettlementDetail(settlementId)
 }
 
 // 查看订单详情（低风险版本：升级为正式弹层）
-const viewOrderDetail = (item: OrderItem) => {
+const viewOrderDetail = async (item: OrderItem) => {
   selectedOrderDetail.value = item
+  await reloadSelectedOrderCommissionDetail()
 }
 
 const closeOrderDetail = () => {
   selectedOrderDetail.value = null
-}
-
-// 查看结算明细：跳转到订单记录页并按伙伴筛选
-const viewSettlementDetail = (_partnerId: number, partnerCode: string) => {
-  orderKeyword.value = partnerCode
-  currentMenu.value = 'order'
-  loadOrders(1)
+  orderCommissionDetail.value = null
 }
 
 // 导出 Excel（纯前端，无需依赖库，生成 CSV 格式）
@@ -2635,6 +3017,7 @@ onMounted(() => {
   loadTeam()
   loadSettlement()
   loadOrders()
+  loadBalanceData()
 })
 </script>
 

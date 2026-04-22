@@ -44,6 +44,49 @@ type DiscountData = {
   merchant_page_enabled?: boolean
   group_section_enabled?: boolean
 }
+type BalanceData = {
+  user_id?: number
+  balance?: string | number
+  frozen_balance?: string | number
+  pending_balance?: string | number
+  total_income?: string | number
+  total_withdraw?: string | number
+}
+type BalanceLogItem = {
+  id: number
+  type: string
+  amount: string
+  balance_before: string
+  balance_after: string
+  related_type: string
+  related_id: number
+  remark: string
+  created_at: string
+}
+type BalanceLogsData = {
+  items: BalanceLogItem[]
+  total: number
+  page: number
+  page_size: number
+}
+type TransferableCommissionItem = {
+  id: number
+  order_id: number
+  order_no: string
+  product_name: string
+  commission_amount: string
+  status: string
+  can_transfer: boolean
+  transferred_to_balance: boolean
+  available_at: string
+  created_at: string
+}
+type TransferableCommissionData = {
+  items: TransferableCommissionItem[]
+  total: number
+  page: number
+  page_size: number
+}
 type PartnerItem = {
   id: number
   code: string
@@ -61,6 +104,28 @@ type PartnerItem = {
   total_settlement: string
   group_visible: boolean
   is_new: boolean
+}
+type PartnerOrderDetailItem = {
+  order_id: number
+  order_no: string
+  product_name: string
+  original_amount: string
+  final_amount: string
+  channel_discount: string
+  final_channel: string
+  partner_commission: string
+  my_commission: string
+  referrer_cost: string
+  status: string
+  is_settled: boolean
+  is_self: boolean
+  created_at: string
+}
+type PartnerOrderDetailData = {
+  items: PartnerOrderDetailItem[]
+  total: number
+  page: number
+  page_size: number
 }
 type TeamData = {
   direct_count: number
@@ -122,6 +187,7 @@ type SettlementData = {
   page_size: number
 }
 type OrderItem = {
+  order_id: number
   order_no: string
   channel: string
   product_name: string
@@ -131,6 +197,27 @@ type OrderItem = {
   my_commission: string
   referrer_cost: string
   created_at: string
+}
+type OrderCommissionLayerItem = {
+  level: number
+  user_id: number
+  display_name: string
+  role: string
+  commission_rate: number
+  commission_amount: string
+  status: string
+}
+type OrderCommissionDetailData = {
+  order_id: number
+  order_no: string
+  product_name: string
+  original_amount: string
+  final_amount: string
+  channel_discount: string
+  final_channel: string
+  status: string
+  created_at: string
+  layers: OrderCommissionLayerItem[]
 }
 type LevelRule = {
   enabled: boolean
@@ -394,6 +481,7 @@ const mapSettlement = (data: any): SettlementData => {
 const mapOrders = (data: any): OrderItem[] =>
   Array.isArray(data?.items)
     ? data.items.map((item: any) => ({
+        order_id: Number(item.order_id ?? 0),
         order_no: item.order_no || String(item.order_id ?? ''),
         channel: item.channel || '我的直销',
         product_name: item.product_name || '-',
@@ -405,6 +493,53 @@ const mapOrders = (data: any): OrderItem[] =>
         created_at: item.created_at || '',
       }))
     : []
+
+const mapPartnerOrderDetails = (data: any): PartnerOrderDetailData => ({
+  items: Array.isArray(data?.items)
+    ? data.items.map((item: any) => ({
+        order_id: Number(item.order_id ?? 0),
+        order_no: item.order_no || '',
+        product_name: item.product_name || '-',
+        original_amount: formatMoney(item.original_amount),
+        final_amount: formatMoney(item.final_amount),
+        channel_discount: formatMoney(item.channel_discount),
+        final_channel: item.final_channel || '-',
+        partner_commission: formatMoney(item.partner_commission),
+        my_commission: formatMoney(item.my_commission),
+        referrer_cost: formatMoney(item.referrer_cost),
+        status: item.status || '',
+        is_settled: Boolean(item.is_settled),
+        is_self: Boolean(item.is_self),
+        created_at: item.created_at || '',
+      }))
+    : [],
+  total: Number(data?.total ?? 0),
+  page: Number(data?.page ?? 1),
+  page_size: Number(data?.page_size ?? 20),
+})
+
+const mapOrderCommissionDetail = (data: any): OrderCommissionDetailData => ({
+  order_id: Number(data?.order_id ?? 0),
+  order_no: data?.order_no || '',
+  product_name: data?.product_name || '-',
+  original_amount: formatMoney(data?.original_amount),
+  final_amount: formatMoney(data?.final_amount),
+  channel_discount: formatMoney(data?.channel_discount),
+  final_channel: data?.final_channel || '-',
+  status: data?.status || '',
+  created_at: data?.created_at || '',
+  layers: Array.isArray(data?.layers)
+    ? data.layers.map((item: any) => ({
+        level: Number(item.level ?? 0),
+        user_id: Number(item.user_id ?? 0),
+        display_name: item.display_name || '-',
+        role: item.role || '',
+        commission_rate: Number(item.commission_rate ?? 0),
+        commission_amount: formatMoney(item.commission_amount),
+        status: item.status || '',
+      }))
+    : [],
+})
 
 const mapLevels = (data: any): LevelsData => ({
   my_rate: Number(data?.my_rate ?? 0),
@@ -452,6 +587,54 @@ const mapLevels = (data: any): LevelsData => ({
     : [],
 })
 
+const mapBalance = (data: any): BalanceData => ({
+  user_id: Number(data?.user_id ?? 0),
+  balance: formatMoney(data?.balance),
+  frozen_balance: formatMoney(data?.frozen_balance),
+  pending_balance: formatMoney(data?.pending_balance),
+  total_income: formatMoney(data?.total_income),
+  total_withdraw: formatMoney(data?.total_withdraw),
+})
+
+const mapBalanceLogs = (data: any): BalanceLogsData => ({
+  items: Array.isArray(data?.items)
+    ? data.items.map((item: any) => ({
+        id: Number(item.id ?? 0),
+        type: item.type || '',
+        amount: formatMoney(item.amount),
+        balance_before: formatMoney(item.balance_before),
+        balance_after: formatMoney(item.balance_after),
+        related_type: item.related_type || '',
+        related_id: Number(item.related_id ?? 0),
+        remark: item.remark || '',
+        created_at: item.created_at || '',
+      }))
+    : [],
+  total: Number(data?.total ?? 0),
+  page: Number(data?.page ?? 1),
+  page_size: Number(data?.page_size ?? 20),
+})
+
+const mapTransferableCommissions = (data: any): TransferableCommissionData => ({
+  items: Array.isArray(data?.items)
+    ? data.items.map((item: any) => ({
+        id: Number(item.id ?? 0),
+        order_id: Number(item.order_id ?? 0),
+        order_no: item.order_no || '',
+        product_name: item.product_name || '-',
+        commission_amount: formatMoney(item.commission_amount),
+        status: item.status || '',
+        can_transfer: Boolean(item.can_transfer),
+        transferred_to_balance: Boolean(item.transferred_to_balance),
+        available_at: item.available_at || '',
+        created_at: item.created_at || '',
+      }))
+    : [],
+  total: Number(data?.total ?? 0),
+  page: Number(data?.page ?? 1),
+  page_size: Number(data?.page_size ?? 100),
+})
+
 export const zhengyeAPI = {
   /** 首页概览 */
   getDashboard: async (): Promise<DashboardData> => mapDashboard(await unwrap(userApi.get('/affiliate/dashboard-v2'))),
@@ -474,6 +657,8 @@ export const zhengyeAPI = {
   /** 我的伙伴 */
   getPartners: async (params?: { keyword?: string; page?: number; page_size?: number }): Promise<PartnerItem[]> =>
     mapPartners(await unwrap(userApi.get('/affiliate/partners', { params }))),
+  getPartnerOrdersByDate: async (partnerId: number, params?: { start_date?: string; end_date?: string; keyword?: string; page?: number; page_size?: number }): Promise<PartnerOrderDetailData> =>
+    mapPartnerOrderDetails(await unwrap(userApi.get(`/affiliate/partners/${partnerId}/orders`, { params }))),
   updatePartnerRate: async (partnerId: number, rate: number): Promise<{ partner_id: number; rate: number }> =>
     unwrap(userApi.patch(`/affiliate/partners/${partnerId}`, { rate })),
 
@@ -497,8 +682,19 @@ export const zhengyeAPI = {
     date_from?: string
     date_to?: string
   }): Promise<OrderItem[]> => mapOrders(await unwrap(userApi.get('/affiliate/orders', { params }))),
+  getOrderCommissionDetail: async (orderId: number): Promise<OrderCommissionDetailData> =>
+    mapOrderCommissionDetail(await unwrap(userApi.get(`/affiliate/orders/${orderId}/commission-detail`))),
 
   /** 客户优惠 */
   getDiscount: async (): Promise<DiscountData> => unwrap(userApi.get('/affiliate/discount')),
   saveDiscount: async (data: unknown): Promise<DiscountData> => unwrap(userApi.put('/affiliate/discount', data)),
+
+  /** 我的结算 / 钱包基础能力 */
+  getBalance: async (): Promise<BalanceData> => mapBalance(await unwrap(userApi.get('/affiliate/balance'))),
+  getBalanceLogs: async (params?: { page?: number; page_size?: number }): Promise<BalanceLogsData> =>
+    mapBalanceLogs(await unwrap(userApi.get('/affiliate/balance-logs', { params }))),
+  getTransferableCommissions: async (params?: { page?: number; page_size?: number }): Promise<TransferableCommissionData> =>
+    mapTransferableCommissions(await unwrap(userApi.get('/affiliate/transferable-commissions', { params }))),
+  transferCommissionToBalance: async (data: { commission_ids: number[]; amount: number; verify_code?: string }): Promise<Record<string, unknown>> =>
+    unwrap(userApi.post('/affiliate/transfer', data)),
 }
