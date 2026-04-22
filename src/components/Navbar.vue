@@ -320,10 +320,38 @@ const buildBuiltinNavItems = (): NavItem[] => {
 const canAccessAffiliateCenter = computed(() => userAuthStore.isAuthenticated && userAuthStore.isTokenMerchant)
 const canAccessAffiliateApply = computed(() => userAuthStore.isAuthenticated && !userAuthStore.isTokenMerchant)
 
+const normalizeNavPath = (path: string): string => {
+  const raw = String(path || '').trim()
+  if (!raw) return ''
+
+  try {
+    if (/^https?:\/\//i.test(raw)) {
+      return new URL(raw).pathname.replace(/\/+$/, '') || '/'
+    }
+  } catch {
+    // ignore invalid url and fallback to string normalization below
+  }
+
+  return raw
+    .replace(/[?#].*$/, '')
+    .replace(/\/+$/, '') || '/'
+}
+
+const isAffiliateCenterNavItem = (item: NavItem): boolean => {
+  const normalizedPath = normalizeNavPath(item.path)
+  const normalizedLabel = String(item.label || '').trim()
+  return normalizedPath === '/zhengye' || normalizedLabel === '合伙人制度'
+}
+
+const isAffiliateApplyNavItem = (item: NavItem): boolean => {
+  const normalizedPath = normalizeNavPath(item.path)
+  const normalizedLabel = String(item.label || '').trim()
+  return normalizedPath === '/token-merchant-v2' || normalizedLabel === '合伙人申请'
+}
+
 const canDisplayNavItem = (item: NavItem) => {
-  if (item.type !== 'route') return true
-  if (item.path === '/zhengye') return canAccessAffiliateCenter.value
-  if (item.path === '/token-merchant-v2') return canAccessAffiliateApply.value
+  if (isAffiliateCenterNavItem(item)) return canAccessAffiliateCenter.value
+  if (isAffiliateApplyNavItem(item)) return canAccessAffiliateApply.value
   return true
 }
 

@@ -269,7 +269,7 @@
                   </div>
                 </div>
                 <label class="inline-flex items-center gap-2 text-xs theme-text-secondary">
-                  <input v-model="useBalance" type="checkbox" class="h-4 w-4 accent-primary" :disabled="walletOnlyPayment" />
+                  <input v-model="useBalance" type="checkbox" class="h-4 w-4 accent-primary" />
                   <span>{{ t('payment.useBalance') }}</span>
                 </label>
               </div>
@@ -1221,9 +1221,7 @@ const loadWalletBalance = async () => {
 }
 
 onMounted(async () => {
-  if (!appStore.config) {
-    await appStore.loadConfig()
-  }
+  await appStore.loadConfig(true)
   await syncCartStockSnapshots()
   debouncedLoadPreview()
   loadWalletBalance()

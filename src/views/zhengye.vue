@@ -21,48 +21,57 @@
         <!-- 1. 先看这里 -->
         <div v-if="currentMenu === 'home'">
           <div class="top-banner">
-            <p>一个人慢，一群人快，睡着也在涨。</p>
-            <h2>发条链接，两种赚法：</h2>
-            <p>① 小伙伴买 Token，你拿钱。</p>
-            <p>② 小伙伴也来卖，他每一单，你都分。</p>
+            <div class="top-banner__hero">
+              <p class="top-banner__slogan">一个人慢，一群人快，睡着也在涨。</p>
+              <h2>发条链接，两种赚法：</h2>
+              <p>① 小伙伴买 Token，你拿钱。</p>
+              <p>② 小伙伴也来卖，他每一单，你都分。</p>
 
-          <div class="card promo-card mb-20">
-            <div class="promo-card__block">
-              <h3>我的推广信息</h3>
-              <div class="promo-line">
-                <span class="promo-label">我的推广码</span>
-                <strong>{{ dashboard.affiliate_code || '--' }}</strong>
+              <div class="top-banner__guide">
+                <p>看板怎么用？三步就够：</p>
+                <p>1. 复制上面的「我的推广链接」，发出去。</p>
+                <p>2. 去「客户优惠」给买家设个折扣，他们更愿意下单。</p>
+                <p>3. 想带人一起卖，去「伙伴等级返佣」定好每一档怎么分。</p>
+                <p>其他页面（详细数据、订单记录、订单结算、团队结构）都是看战绩的，闲下来再翻。</p>
               </div>
-              <div class="promo-line promo-line--column">
-                <span class="promo-label">我的推广链接</span>
+            </div>
+
+            <div class="top-banner__side">
+              <div class="card promo-side-card">
+                <h3>我的推广码</h3>
+                <div class="promo-inline-row">
+                  <strong class="promo-inline-code">{{ dashboard.affiliate_code || '--' }}</strong>
+                  <button class="btn btn-default btn-sm" @click="copyPromotionLink">复制推广链接</button>
+                </div>
+              </div>
+
+              <div class="card promo-side-card">
+                <h3>我的推广链接</h3>
                 <div class="promo-link-box">{{ promotionLinkText }}</div>
               </div>
-              <button class="btn btn-primary btn-sm" @click="copyPromotionLink">复制推广链接</button>
-            </div>
 
-            <div class="promo-card__block">
-              <h3>上级联系方式</h3>
-              <div v-if="hasParentContact" class="parent-contact-info">
-                <div v-if="dashboard.parent_contact_qq" class="contact-item">
-                  <span class="contact-label">QQ：</span>
-                  <span class="contact-value">{{ dashboard.parent_contact_qq }}</span>
+              <div class="card promo-side-card">
+                <h3>带你的人（联系方式）</h3>
+                <div v-if="hasParentContact" class="parent-contact-info">
+                  <div v-if="dashboard.parent_contact_qq" class="contact-item">
+                    <span class="contact-label">QQ：</span>
+                    <span class="contact-value">{{ dashboard.parent_contact_qq }}</span>
+                  </div>
+                  <div v-if="dashboard.parent_contact_wx" class="contact-item">
+                    <span class="contact-label">微信：</span>
+                    <span class="contact-value">{{ dashboard.parent_contact_wx }}</span>
+                  </div>
+                  <div v-if="dashboard.parent_contact_other" class="contact-item">
+                    <span class="contact-label">其它：</span>
+                    <span class="contact-value">{{ dashboard.parent_contact_other }}</span>
+                  </div>
+                  <div v-if="dashboard.parent_announcement" class="contact-announcement">
+                    <div class="announcement-content">{{ dashboard.parent_announcement }}</div>
+                  </div>
                 </div>
-                <div v-if="dashboard.parent_contact_wx" class="contact-item">
-                  <span class="contact-label">微信：</span>
-                  <span class="contact-value">{{ dashboard.parent_contact_wx }}</span>
-                </div>
-                <div v-if="dashboard.parent_contact_other" class="contact-item">
-                  <span class="contact-label">其它：</span>
-                  <span class="contact-value">{{ dashboard.parent_contact_other }}</span>
-                </div>
-                <div v-if="dashboard.parent_announcement" class="contact-announcement">
-                  <div class="announcement-label">公告：</div>
-                  <div class="announcement-content">{{ dashboard.parent_announcement }}</div>
-                </div>
+                <div v-else class="empty-tip">暂无上级联系方式</div>
               </div>
-              <div v-else class="empty-tip">暂无上级联系方式</div>
             </div>
-          </div>
           </div>
 
           <div class="grid-3 mb-20">
@@ -77,7 +86,7 @@
                 <div class="label">最高可拿</div>
                 <div class="value">{{ formatPercent(dashboard.max_commission_rate) }}</div>
               </div>
-              <div class="tip">下一步怎么升级<br>{{ nextUpgradeText }}</div>
+              <div v-if="nextUpgradeText" class="tip">下一步怎么升级<br>{{ nextUpgradeText }}</div>
             </div>
 
             <div class="card">
@@ -160,7 +169,7 @@
               <h3>这套体系其实很简单</h3>
               <p>你把链接发给别人。</p>
               <p>别人通过你的链接下单，你赚钱。</p>
-              <p>你带来的伙伴默认从{{ formatPercent(levels.entry_rate) }}开始，后续升到哪一档、每档返多少，都在「伙伴等级返佣」里设置。</p>
+              <p>你带来的伙伴默认从{{ formatPercent(levels.entry_rate || dashboard.entry_rate || 0) }}开始，后续升到哪一档、每档返多少，都在「伙伴等级返佣」里设置。</p>
               <p>你赚得越多，达到目标后，能拿到的比例就越高。</p>
             </div>
 
@@ -254,8 +263,8 @@
 
             <div class="card">
               <h3>历史闪电王</h3>
-              <div class="value">{{ rank.fastest_order?.minutes ?? '--' }}分</div>
-              <p>{{ rank.fastest_order?.minutes ?? '--' }}分，发出去就开单，钱已经赚好了</p>
+              <div class="value">{{ rank.fastest_order?.duration_text || `${rank.fastest_order?.minutes ?? '--'}分` }}</div>
+              <p>{{ rank.fastest_order?.duration_text || `${rank.fastest_order?.minutes ?? '--'}分` }}，发出去就开单，钱已经赚好了</p>
               <div class="rank-bar">
                 <div class="rank-item red">
                   <span>{{ rank.fastest_order?.rank ?? '--' }}</span>
@@ -406,10 +415,36 @@
               </div>
             </div>
             <div class="chart-placeholder">
-              <div class="chart-line">
-                <div class="point" v-for="(item, index) in statsTrend" :key="`${item.date}-${index}`" :style="getTrendPointStyle(index, statsTrend.length, item.amount)"></div>
+              <div v-if="statsTrend.length" class="chart-surface">
+                <div class="chart-grid">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div class="chart-polyline">
+                  <div
+                    v-for="(segment, index) in trendSegments"
+                    :key="`segment-${index}`"
+                    class="chart-segment"
+                    :style="segment"
+                  ></div>
+                </div>
+                <div class="chart-points">
+                  <div
+                    class="point"
+                    v-for="(item, index) in statsTrend"
+                    :key="`${item.date}-${index}`"
+                    :style="getTrendPointStyle(index, statsTrend.length, item.amount)"
+                    :title="`${item.date}：${formatMoney(item.amount)}`"
+                  >
+                    <span class="point-dot"></span>
+                    <span class="point-value">{{ formatMoney(item.amount) }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="chart-x">
+              <div v-else class="chart-empty">暂无趋势数据</div>
+              <div class="chart-x" :class="{ 'chart-x--empty': !statsTrend.length }">
                 <span v-for="(item, index) in statsTrend" :key="`${item.date}-label-${index}`">{{ item.date }}</span>
               </div>
             </div>
@@ -446,11 +481,22 @@
             <p>你的团队伙伴越多、团队做得越好，你赚得也会更多 💪</p>
           </div>
 
+          <div v-if="!canConfigureLevels" class="alert alert-gray mb-20">
+            <p><strong>当前账号没有上级</strong>，系统不会开放“升级规则”自由设置，避免出现无上级时档位规则异常。</p>
+            <p>当前首页显示为 0 属于无上级默认状态；只有通过上级推广链接加入后，才会继承上级的入门档与最高档规则。</p>
+          </div>
+
           <div class="card mb-20 level-config-card">
             <h3>🛠 升级规则设置</h3>
             <p>给团队伙伴设几个档位，他们卖得越多，自动升到更高档位，自己赚得更多。越往上越厉害、赚得越多。</p>
 
-            <div v-if="!hasLevelConfig" class="levels-empty-state">
+            <div v-if="!canConfigureLevels" class="levels-empty-state">
+              <div class="levels-empty-icon">🔒</div>
+              <h4>当前不可设置档位</h4>
+              <p>你现在没有上级，系统已禁止自由设置升级规则，避免出现漏洞。</p>
+            </div>
+
+            <div v-else-if="!hasLevelConfig" class="levels-empty-state">
               <div class="levels-empty-icon">🏗️</div>
               <h4>还没有设置档位</h4>
               <p>设好档位后，伙伴卖得越多就会自动升级，赚得更多。</p>
@@ -1502,6 +1548,8 @@ type DashboardData = {
   opened?: boolean
   affiliate_code?: string
   promotion_path?: string
+  has_parent?: boolean
+  entry_rate?: number
   my_commission_rate?: number
   max_commission_rate?: number
   upgrade_condition?: string
@@ -1552,6 +1600,7 @@ type StatsData = {
 type RankMetric = {
   amount?: string
   count?: number
+  duration_text?: string
   time?: string
   minutes?: number
   rank?: number
@@ -2057,15 +2106,48 @@ const formatCommissionRole = (role?: string, name?: string) => {
 const isPositiveCommissionStatus = (status?: string) => ['available', 'withdrawn', 'paid', 'settled'].includes(String(status || '').toLowerCase())
 
 const statsTrend = computed(() => stats.value.trend ?? [])
+const trendSegments = computed(() => {
+  const items = statsTrend.value
+  if (items.length < 2) return []
+
+  return items.slice(0, -1).map((item, index) => {
+    const nextItem = items[index + 1]
+    if (!nextItem) {
+      return {
+        left: '0%',
+        top: '0%',
+        width: '0%',
+        transform: 'rotate(0deg)',
+      }
+    }
+    const current = getTrendPointPosition(index, items.length, item.amount)
+    const next = getTrendPointPosition(index + 1, items.length, nextItem.amount)
+    const dx = next.left - current.left
+    const dy = next.top - current.top
+    const length = Math.sqrt(dx * dx + dy * dy)
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI
+    return {
+      left: `${current.left}%`,
+      top: `${current.top}%`,
+      width: `${length}%`,
+      transform: `rotate(${angle}deg)`,
+    }
+  })
+})
 const currentCommissionRate = computed(() => {
   if (typeof dashboard.value.my_commission_rate === 'number') return dashboard.value.my_commission_rate
   if (typeof levels.value.entry_rate === 'number' && levels.value.entry_rate > 0) return levels.value.entry_rate
   if (typeof stats.value.commission_rate === 'number') return stats.value.commission_rate
   return 0
 })
+const canConfigureLevels = computed(() => Boolean(dashboard.value.has_parent))
 
 const nextUpgradeText = computed(() => {
-  if (dashboard.value.upgrade_condition) return dashboard.value.upgrade_condition
+  const dashboardUpgrade = String(dashboard.value.upgrade_condition || '').trim()
+  if (dashboardUpgrade) {
+    if (/最高档|无法升级|无上级/.test(dashboardUpgrade)) return ''
+    return dashboardUpgrade
+  }
 
   const orderedLevels = (localLevels.value.length ? localLevels.value : levels.value.levels)
     .slice()
@@ -2073,7 +2155,7 @@ const nextUpgradeText = computed(() => {
 
   const currentRate = Number(currentCommissionRate.value ?? 0)
   const nextLevel = orderedLevels.find((level) => Number(level.rate ?? 0) > currentRate)
-  if (!nextLevel) return '当前已是最高档，后续如需更高档位请先在「伙伴等级返佣」补充设置'
+  if (!nextLevel) return ''
 
   const rule = normalizeRule(nextLevel)
   if (!rule.enabled) {
@@ -2607,6 +2689,10 @@ const removeLevel = (id: number) => {
 }
 
 const handleLevelsSave = async (payload: LevelsData) => {
+  if (!canConfigureLevels.value) {
+    window.alert('当前账号没有上级，不能自由设置升级规则')
+    return
+  }
   try {
     savingLevels.value = true
     const saved = await zhengyeAPI.saveLevels(payload)
@@ -2715,6 +2801,10 @@ const handleSettle = async (partnerId: number) => {
 }
 
 const saveCurrentLevel = async () => {
+  if (!canConfigureLevels.value) {
+    window.alert('当前账号没有上级，不能自由设置升级规则')
+    return
+  }
   if (!currentEditLevel.value) return
 
   if (!editorForm.value.name?.trim()) {
@@ -2830,17 +2920,24 @@ const copyPromotionLink = async () => {
   }
 }
 
-const getTrendPointStyle = (index: number, length: number, amount: number) => {
-  if (length <= 1) return { left: '0%', top: '50%' }
-
+const getTrendPointPosition = (index: number, length: number, amount: number) => {
+  if (length <= 1) return { left: 0, top: 50 }
   const maxAmount = Math.max(...statsTrend.value.map(item => item.amount), 0)
   const minTop = 18
   const maxTop = 82
   const progress = maxAmount > 0 ? amount / maxAmount : 0
 
   return {
-    left: `${(index / (length - 1)) * 100}%`,
-    top: `${maxTop - progress * (maxTop - minTop)}%`,
+    left: (index / (length - 1)) * 100,
+    top: maxTop - progress * (maxTop - minTop),
+  }
+}
+
+const getTrendPointStyle = (index: number, length: number, amount: number) => {
+  const position = getTrendPointPosition(index, length, amount)
+  return {
+    left: `${position.left}%`,
+    top: `${position.top}%`,
   }
 }
 
@@ -3103,6 +3200,85 @@ body {
 .page-header p {
   font-size: 14px;
   color: #666;
+}
+
+.top-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) 400px;
+  gap: 24px;
+  margin-bottom: 20px;
+  padding: 28px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #f7fbff 0%, #eef5fb 100%);
+  border: 1px solid #e5edf7;
+}
+
+.top-banner__hero {
+  min-width: 0;
+}
+
+.top-banner__slogan {
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1b6fb8;
+}
+
+.top-banner__hero h2 {
+  margin-bottom: 10px;
+  font-size: 34px;
+  line-height: 1.25;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.top-banner__hero > p {
+  margin-bottom: 8px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #2f3a4a;
+}
+
+.top-banner__guide {
+  margin-top: 24px;
+}
+
+.top-banner__guide p {
+  margin-bottom: 10px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #4b5563;
+}
+
+.top-banner__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.promo-side-card {
+  border-radius: 20px;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06);
+}
+
+.promo-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.promo-inline-code {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 2px solid #d2dbe7;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 26px;
+  font-weight: 800;
+  color: #3a4351;
 }
 
 /* 通用样式 */
@@ -3809,6 +3985,15 @@ body {
 }
 
 @media (max-width: 960px) {
+  .top-banner {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .top-banner__hero h2 {
+    font-size: 28px;
+  }
+
   .promo-card,
   .partner-detail-grid,
   .detail-modal__grid {
@@ -4011,41 +4196,108 @@ body {
 
 /* 图表占位 */
 .chart-placeholder {
-  height: 200px;
+  min-height: 260px;
   position: relative;
 }
-.chart-line {
-  position: absolute;
-  top: 50%;
-  left: 20px;
-  right: 20px;
-  height: 2px;
-  background: #007bff;
+
+.chart-surface {
+  position: relative;
+  height: 210px;
+  margin: 12px 8px 0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  overflow: hidden;
 }
-.chart-line .point {
+
+.chart-grid {
   position: absolute;
-  top: -4px;
-  width: 8px;
-  height: 8px;
+  inset: 16px 0 20px;
+  display: grid;
+  grid-template-rows: repeat(4, 1fr);
+}
+
+.chart-grid span {
+  border-top: 1px dashed #d9e4f2;
+}
+
+.chart-grid span:last-child {
+  border-bottom: 1px dashed #d9e4f2;
+}
+
+.chart-polyline,
+.chart-points {
+  position: absolute;
+  inset: 0 12px 0 12px;
+}
+
+.chart-segment {
+  position: absolute;
+  height: 3px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #7eb8ff 0%, #1677ff 100%);
+  box-shadow: 0 0 0 1px rgba(22, 119, 255, 0.05);
+}
+
+.point {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.point-dot {
+  display: block;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #007bff;
+  background: #1677ff;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.35);
 }
-.chart-line .point:nth-child(1) { left: 0%; }
-.chart-line .point:nth-child(2) { left: 16.66%; }
-.chart-line .point:nth-child(3) { left: 33.33%; }
-.chart-line .point:nth-child(4) { left: 50%; }
-.chart-line .point:nth-child(5) { left: 66.66%; }
-.chart-line .point:nth-child(6) { left: 83.33%; }
-.chart-line .point:nth-child(7) { left: 100%; }
-.chart-x {
+
+.point-value {
   position: absolute;
-  bottom: 0;
-  left: 20px;
-  right: 20px;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1677ff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 210px;
+  margin: 12px 8px 0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  color: #93a1b2;
+  font-size: 14px;
+}
+
+.chart-x {
+  display: flex;
   display: flex;
   justify-content: space-between;
+  gap: 8px;
+  padding: 12px 20px 0;
   font-size: 12px;
   color: #666;
+}
+
+.chart-x span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  word-break: break-all;
+}
+
+.chart-x--empty {
+  display: none;
 }
 
 .level-config-card {

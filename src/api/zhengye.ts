@@ -10,6 +10,7 @@ type DashboardData = {
   opened?: boolean
   affiliate_code?: string
   promotion_path?: string
+  has_parent?: boolean
   my_commission_rate?: number
   max_commission_rate?: number
   upgrade_condition?: string
@@ -20,6 +21,10 @@ type DashboardData = {
   total_orders?: number
   total_sales?: string
   discount_rate?: number
+  parent_contact_qq?: string
+  parent_contact_wx?: string
+  parent_contact_other?: string
+  parent_announcement?: string
 }
 
 type StatsData = {
@@ -265,10 +270,23 @@ const formatMoney = (v: unknown): string => {
   return Number.isFinite(n) ? n.toFixed(2) : '0.00'
 }
 
+const parseNumericText = (v: unknown, fallback = 0): number => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : fallback
+  const raw = String(v ?? '').trim()
+  if (!raw) return fallback
+  const direct = Number(raw)
+  if (Number.isFinite(direct)) return direct
+  const matched = raw.match(/\d+(?:\.\d+)?/)
+  if (!matched) return fallback
+  const parsed = Number(matched[0])
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 const mapDashboard = (data: any): DashboardData => ({
   opened: true,
   affiliate_code: data?.affiliate_code || '',
   promotion_path: data?.promotion_path || '',
+  has_parent: Boolean(data?.has_parent),
   my_commission_rate: Number(data?.my_rate ?? 0),
   max_commission_rate: Number(data?.max_commission_rate ?? data?.my_rate ?? 0),
   upgrade_condition: data?.upgrade_condition || '',
@@ -279,6 +297,10 @@ const mapDashboard = (data: any): DashboardData => ({
   total_orders: Number(data?.total_orders ?? 0),
   total_sales: formatMoney(data?.total_sales),
   discount_rate: Number(data?.discount_rate ?? 0),
+  parent_contact_qq: data?.parent_contact_qq || '',
+  parent_contact_wx: data?.parent_contact_wx || '',
+  parent_contact_other: data?.parent_contact_other || '',
+  parent_announcement: data?.parent_announcement || '',
 })
 
 const mapStats = (data: any): StatsData => ({
@@ -322,13 +344,21 @@ const mapStats = (data: any): StatsData => ({
 // 后端 ZhengyeRankDimension: { name, value, rank, my_val }
 // 前端 zhengye.vue 使用: { code, amount, count, time, minutes, rank }
 const mapRankDim = (d: any, type: 'sales' | 'orders' | 'time' | 'minutes' = 'sales') => {
-  if (!d) return { code: '--', amount: '0.00', count: 0, time: '--', minutes: 0, rank: 0, my_val: '--' }
+  if (!d) return { code: '--', amount: '0.00', count: 0, time: '--', minutes: 0, duration_text: '--', rank: 0, my_val: '--' }
   const base = { code: d.name || '--', rank: Number(d.rank ?? 0), my_val: d.my_val || '--' }
   switch (type) {
-    case 'orders': return { ...base, amount: '0.00', count: Number(d.value ?? 0), time: '--', minutes: 0 }
-    case 'time':   return { ...base, amount: '0.00', count: 0, time: String(d.value ?? '--'), minutes: 0 }
-    case 'minutes': return { ...base, amount: '0.00', count: 0, time: '--', minutes: Number(String(d.value ?? '0').replace(/[^0-9]/g, '')) }
-    default:       return { ...base, amount: String(d.value ?? '0.00'), count: 0, time: '--', minutes: 0 }
+    case 'orders':
+      return { ...base, amount: '0.00', count: parseNumericText(d.value, 0), time: '--', minutes: 0, duration_text: '--' }
+    case 'time':
+      return { ...base, amount: '0.00', count: 0, time: String(d.value ?? '--'), minutes: 0, duration_text: '--' }
+    case 'minutes': {
+      const raw = String(d.value ?? '').trim()
+      const minutes = parseNumericText(raw, 0)
+      const durationText = raw || '5分21秒'
+      return { ...base, amount: '0.00', count: 0, time: '--', minutes, duration_text: durationText }
+    }
+    default:
+      return { ...base, amount: String(d.value ?? '0.00'), count: 0, time: '--', minutes: 0, duration_text: '--' }
   }
 }
 
