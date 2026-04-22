@@ -213,11 +213,11 @@
                   <span class="theme-text-muted">{{ t('payment.feeAmountLabel') }}</span>
                   <span class="font-medium theme-text-primary">{{ feeAmountDisplay }}</span>
                 </div>
-                <div v-if="showBalanceOption && useBalance" class="flex items-center justify-between gap-4">
+                <div v-if="false" class="flex items-center justify-between gap-4">
                   <span class="theme-text-muted">{{ t('payment.walletDeductLabel') }}</span>
                   <span class="font-medium theme-text-primary">{{ expectedWalletPaidDisplay }}</span>
                 </div>
-                <div v-if="showBalanceOption && useBalance" class="flex items-center justify-between gap-4">
+                <div v-if="false" class="flex items-center justify-between gap-4">
                   <span class="theme-text-muted">{{ t('payment.onlinePayLabel') }}</span>
                   <span class="font-medium theme-text-primary">{{ expectedOnlinePayDisplay }}</span>
                 </div>
@@ -290,33 +290,6 @@
               {{ t('common.loading') }}
             </div>
             <template v-else>
-              <div
-                v-if="showBalanceOption"
-                class="mb-4 rounded-xl border p-4 theme-surface-soft"
-              >
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div class="text-xs theme-text-muted">{{ t('payment.walletBalanceLabel') }}</div>
-                    <div class="mt-1 text-sm font-semibold theme-text-primary">
-                      {{ walletLoading ? t('common.loading') : walletBalanceDisplay }}
-                    </div>
-                  </div>
-                  <label class="inline-flex items-center gap-2 text-xs theme-text-secondary">
-                    <input v-model="useBalance" type="checkbox" class="h-4 w-4 accent-primary" :disabled="walletOnlyPayment" />
-                    <span>{{ t('payment.useBalance') }}</span>
-                  </label>
-                </div>
-                <div v-if="walletOnlyPayment" class="mt-3 text-xs text-amber-600 dark:text-amber-400">
-                  {{ t('payment.walletOnlyHint') }}
-                </div>
-                <div v-if="useBalance" class="mt-3 space-y-1 text-xs theme-text-muted">
-                  <div>{{ t('payment.walletDeductLabel') }}：{{ expectedWalletPaidDisplay }}</div>
-                  <div v-if="!walletOnlyPayment">{{ t('payment.onlinePayLabel') }}：{{ expectedOnlinePayDisplay }}</div>
-                  <div v-if="walletOnlyPayment && expectedOnlinePayCents > 0" class="text-amber-600 dark:text-amber-400">
-                    {{ t('payment.walletInsufficientHint') }}
-                  </div>
-                </div>
-              </div>
               <div v-if="cachedPayment"
                 class="mb-4 rounded-xl border p-4 text-sm space-y-2 theme-alert-warning">
                 <div class="font-semibold">{{ t('payment.cachedTitle') }}</div>
@@ -336,10 +309,9 @@
                 </div>
               </div>
               <PaymentChannelSelector
-                v-if="!walletOnlyPayment"
                 :channels="channels"
                 :model-value="selectedChannelId"
-                :show-balance-option="showBalanceOption"
+                :show-balance-option="false"
                 :format-channel-fee-rate="formatChannelFeeRate"
                 :format-channel-fixed-fee="formatChannelFixedFee"
                 :is-channel-disabled-for-amount="isChannelDisabledForAmount"
@@ -421,19 +393,7 @@
             <div class="font-semibold">{{ t('payment.methodLabel') }}：{{ selectedChannelName }}</div>
           </div>
           <div
-            v-else-if="!requiresOnlineChannel && !orderExpired && !orderCanceled"
-            class="mb-4 rounded-lg border p-3 text-xs theme-alert-success"
-          >
-            {{ t('payment.walletPayOnly') }}
-          </div>
-          <div
-            v-else-if="walletOnlyPayment && expectedOnlinePayCents > 0 && !orderExpired && !orderCanceled"
-            class="mb-4 rounded-lg border p-3 text-xs theme-alert-warning"
-          >
-            {{ t('payment.walletInsufficientHint') }}
-          </div>
-          <div
-            v-else-if="!walletOnlyPayment && requiresOnlineChannel && !orderExpired && !orderCanceled"
+            v-else-if="requiresOnlineChannel && !orderExpired && !orderCanceled"
             class="mb-4 rounded-lg border p-3 text-xs theme-alert-warning"
           >
             {{ t('payment.selectChannelError') }}
@@ -457,7 +417,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { NavigationFailureType, isNavigationFailure, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { guestOrderAPI, paymentAPI, userOrderAPI, walletAPI } from '../api'
+import { guestOrderAPI, paymentAPI, userOrderAPI } from '../api'
 import { useAppStore } from '../stores/app'
 import { useTelegramMiniAppStore } from '../stores/telegramMiniApp'
 import { orderStatusLabel } from '../utils/status'
@@ -500,9 +460,6 @@ const countdownTimer = ref<number | null>(null)
 const now = ref(appStore.getServerTime())
 const copiedTimer = ref<number | null>(null)
 const redirectTimer = ref<number | null>(null)
-const walletLoading = ref(false)
-const walletBalance = ref('0')
-const useBalance = ref(false)
 const orderPaymentChannels = ref<any[]>([])
 const orderPaymentChannelsLoaded = ref(false)
 const orderPaymentChannelsRequestId = ref(0)
@@ -565,9 +522,6 @@ const orderNoResolved = computed(() => {
 const backLink = computed(() => (isGuest.value ? '/guest/orders' : '/me/orders'))
 const hasGuestAuth = computed(() => Boolean(guestAuth.value.email && guestAuth.value.order_password))
 const showGuestAuthForm = computed(() => isGuest.value && (!hasGuestAuth.value || guestAuthError.value))
-const walletOnlyPayment = computed(() => !!appStore.config?.wallet_only_payment)
-const showBalanceOption = computed(() => !isGuest.value)
-
 const flowSteps = computed(() => ([
   { key: 'cart', label: t('cart.title'), active: false },
   { key: 'checkout', label: t('checkout.title'), active: false },
@@ -696,10 +650,6 @@ watch(
   },
   { immediate: true }
 )
-
-watch(walletOnlyPayment, (v) => {
-  if (v) useBalance.value = true
-}, { immediate: true })
 
 const expiresAtMs = computed(() => {
   const raw = paymentResult.value?.expires_at || order.value?.expires_at
@@ -833,14 +783,7 @@ const payableAmountDisplay = computed(() => {
   if (base === null || fee === null) return '-'
   return formatMoney(centsToAmount(base + fee), order.value?.currency)
 })
-const walletBalanceDisplay = computed(() => formatMoney(walletBalance.value, order.value?.currency))
-const expectedWalletPaidCents = computed(() => {
-  if (!showBalanceOption.value || !useBalance.value) return 0
-  const balance = amountToCents(walletBalance.value)
-  const total = amountToCents(order.value?.total_amount)
-  if (balance === null || total === null) return 0
-  return Math.min(balance, total)
-})
+const expectedWalletPaidCents = computed(() => 0)
 const expectedOnlinePayCents = computed(() => {
   const total = amountToCents(order.value?.total_amount)
   if (total === null) return 0
@@ -848,11 +791,7 @@ const expectedOnlinePayCents = computed(() => {
 })
 const expectedWalletPaidDisplay = computed(() => formatMoney(centsToAmount(expectedWalletPaidCents.value), order.value?.currency))
 const expectedOnlinePayDisplay = computed(() => formatMoney(centsToAmount(expectedOnlinePayCents.value), order.value?.currency))
-const requiresOnlineChannel = computed(() => {
-  if (isGuest.value) return true
-  if (!useBalance.value) return true
-  return expectedOnlinePayCents.value > 0
-})
+const requiresOnlineChannel = computed(() => expectedOnlinePayCents.value > 0)
 const channelLimitMeta = (channel?: any) => {
   const minCents = amountToCents(String(channel?.min_amount ?? ''))
   const maxCents = amountToCents(String(channel?.max_amount ?? ''))
@@ -906,8 +845,7 @@ const selectedChannelAmountHint = computed(() => {
 })
 const canSubmitPayment = computed(() => {
   if (submitting.value) return false
-  if (walletOnlyPayment.value && expectedOnlinePayCents.value > 0) return false
-  if (!walletOnlyPayment.value && requiresOnlineChannel.value && !selectedChannelId.value) return false
+  if (requiresOnlineChannel.value && !selectedChannelId.value) return false
   if (requiresOnlineChannel.value && selectedChannelAmountHint.value) return false
   if (orderExpired.value || orderCanceled.value) return false
   return true
@@ -967,19 +905,6 @@ const loadOrderPaymentChannels = async () => {
 }
 
 const debouncedLoadOrderPaymentChannels = debounceAsync(loadOrderPaymentChannels, 250)
-
-const loadWallet = async () => {
-  if (isGuest.value) return
-  walletLoading.value = true
-  try {
-    const response = await walletAPI.account()
-    walletBalance.value = String(response.data.data?.balance || '0')
-  } catch {
-    walletBalance.value = '0'
-  } finally {
-    walletLoading.value = false
-  }
-}
 
 const loadOrder = async (options?: { silent?: boolean }) => {
   const silent = options?.silent && !!order.value
@@ -1332,7 +1257,7 @@ const performPayment = async () => {
     } else {
       const payload: any = {
         order_no: orderNoResolved.value,
-        use_balance: useBalance.value,
+        use_balance: false,
       }
       if (requiresOnlineChannel.value && selectedChannelId.value) {
         payload.channel_id = selectedChannelId.value
@@ -1343,12 +1268,10 @@ const performPayment = async () => {
         paymentResult.value = null
         cachedPayment.value = null
         selectedChannelId.value = null
-        useBalance.value = false
         stopPolling()
         stopCountdown()
         await Promise.all([
           debouncedLoadOrder({ silent: true }),
-          loadWallet(),
         ])
         redirectToOrderDetail()
         return
@@ -1359,7 +1282,6 @@ const performPayment = async () => {
       }
       openedPayWindow.value = false
       startPolling()
-      await loadWallet()
     }
     window.scrollTo({ top: 0, behavior: 'smooth' })
     const mode = String(paymentResult.value?.interaction_mode || '').toLowerCase()
@@ -1530,7 +1452,6 @@ onMounted(() => {
     order_password: savedAuth.order_password || '',
   }
   loadOrder()
-  void loadWallet()
   if (!appStore.config || !Array.isArray(appStore.config?.payment_channels)) {
     appStore.loadConfig(true)
   }
@@ -1634,7 +1555,6 @@ const handleGuestAuthSubmit = async () => {
 const handleRefresh = async () => {
   await Promise.all([
     debouncedLoadOrder(),
-    loadWallet(),
     debouncedLoadOrderPaymentChannels(),
   ])
 }

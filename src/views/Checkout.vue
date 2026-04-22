@@ -260,33 +260,6 @@
             <h3 class="mb-3 text-sm font-bold theme-text-primary">{{ t('checkout.paymentMethod') }}</h3>
 
             <!-- Wallet Balance -->
-            <div v-if="showBalanceOption" class="mb-3 rounded-lg border theme-surface-soft p-3">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-xs theme-text-muted">{{ t('payment.walletBalanceLabel') }}</div>
-                  <div class="mt-0.5 text-sm font-semibold theme-text-primary">
-                    {{ walletLoading ? t('common.loading') : formatPrice(walletBalance, previewCurrency) }}
-                  </div>
-                </div>
-                <label class="inline-flex items-center gap-2 text-xs theme-text-secondary">
-                  <input v-model="useBalance" type="checkbox" class="h-4 w-4 accent-primary" />
-                  <span>{{ t('payment.useBalance') }}</span>
-                </label>
-              </div>
-              <div v-if="walletOnlyPayment" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                {{ t('payment.walletOnlyHint') }}
-              </div>
-              <div v-if="useBalance" class="mt-2 space-y-1 text-xs theme-text-muted">
-                <div>{{ t('payment.walletDeductLabel') }}：{{ expectedWalletPaidDisplay }}</div>
-                <div v-if="!walletOnlyPayment">{{ t('payment.onlinePayLabel') }}：{{ expectedOnlinePayDisplay }}</div>
-                <div v-if="walletOnlyPayment && expectedOnlinePayCents > 0" class="text-amber-600 dark:text-amber-400">
-                  {{ t('payment.walletInsufficientHint') }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Channel Grid (hidden in wallet-only mode) -->
-            <template v-if="!walletOnlyPayment">
               <div v-if="requiresOnlineChannel && paymentChannels.length > 0" class="grid grid-cols-2 gap-2">
                 <button v-for="channel in paymentChannels" :key="channel.id"
                   type="button"
@@ -311,10 +284,6 @@
               <div v-else-if="requiresOnlineChannel && paymentChannels.length === 0" class="text-xs theme-text-muted">
                 {{ t('checkout.noPaymentChannels') }}
               </div>
-            </template>
-            <div v-if="!requiresOnlineChannel" class="text-xs text-emerald-600 dark:text-emerald-400">
-              {{ t('checkout.walletCoversAll') }}
-            </div>
           </div>
 
           <button
@@ -338,7 +307,7 @@ import { useCartStore, type CartItem } from '../stores/cart'
 import { useBuyNowStore } from '../stores/buyNow'
 import { useAppStore } from '../stores/app'
 import { useUserAuthStore } from '../stores/userAuth'
-import { guestOrderAPI, userOrderAPI, walletAPI, type CaptchaPayload } from '../api'
+import { guestOrderAPI, userOrderAPI, type CaptchaPayload } from '../api'
 import { debounceAsync } from '../utils/debounce'
 import { pageAlertClass, type PageAlert } from '../utils/alerts'
 import { amountToCents, basisPointsToPercent, centsToAmount, parseInteger, rateToBasisPoints } from '../utils/money'
@@ -384,10 +353,6 @@ const orderPaymentChannelsRequestId = ref(0)
 
 // Payment state
 const selectedChannelId = ref<number | null>(null)
-const useBalance = ref(false)
-const walletLoading = ref(false)
-const walletBalance = ref('0')
-
 // Payment channels
 const paymentChannels = computed(() => {
   const list = userAuthStore.isAuthenticated
@@ -426,27 +391,13 @@ const paymentChannels = computed(() => {
   return filtered
 })
 
-const walletOnlyPayment = computed(() => !!appStore.config?.wallet_only_payment)
-const showBalanceOption = computed(() => userAuthStore.isAuthenticated)
-const expectedWalletPaidCents = computed(() => {
-  if (!showBalanceOption.value || !useBalance.value) return 0
-  const balance = amountToCents(walletBalance.value)
-  const total = amountToCents(previewTotal.value)
-  if (balance === null || total === null) return 0
-  return Math.min(balance, total)
-})
+const expectedWalletPaidCents = computed(() => 0)
 const expectedOnlinePayCents = computed(() => {
   const total = amountToCents(previewTotal.value)
   if (total === null) return 0
   return Math.max(total - expectedWalletPaidCents.value, 0)
 })
-const expectedWalletPaidDisplay = computed(() => formatPrice(centsToAmount(expectedWalletPaidCents.value), previewCurrency.value))
-const expectedOnlinePayDisplay = computed(() => formatPrice(centsToAmount(expectedOnlinePayCents.value), previewCurrency.value))
-const requiresOnlineChannel = computed(() => {
-  if (!userAuthStore.isAuthenticated) return true
-  if (!useBalance.value) return true
-  return expectedOnlinePayCents.value > 0
-})
+const requiresOnlineChannel = computed(() => expectedOnlinePayCents.value > 0)
 
 const channelLimitMeta = (channel?: any) => {
   const minCents = amountToCents(String(channel?.min_amount ?? ''))
@@ -893,8 +844,7 @@ const canSubmit = computed(() => {
   if (cartItems.value.length === 0) return false
   if (!manualFormValidation.value.valid) return false
   if (cartItems.value.some((item) => itemStockExceeded(item))) return false
-  if (walletOnlyPayment.value && expectedOnlinePayCents.value > 0) return false
-  if (!walletOnlyPayment.value && requiresOnlineChannel.value && !selectedChannelId.value) return false
+  if (requiresOnlineChannel.value && !selectedChannelId.value) return false
   if (requiresOnlineChannel.value && selectedChannelAmountHint.value) return false
   if (userAuthStore.isAuthenticated) return true
   if (checkoutMode.value !== 'guest') return false
@@ -919,8 +869,7 @@ const submitBlockedReason = computed(() => {
   if (stockBlockedItem) {
     return itemStockHint(stockBlockedItem) || t('cart.stockOut')
   }
-  if (walletOnlyPayment.value && expectedOnlinePayCents.value > 0) return t('payment.walletInsufficientHint')
-  if (!walletOnlyPayment.value && requiresOnlineChannel.value && !selectedChannelId.value) return t('checkout.errors.selectPayment')
+  if (requiresOnlineChannel.value && !selectedChannelId.value) return t('checkout.errors.selectPayment')
   if (requiresOnlineChannel.value && selectedChannelAmountHint.value) return selectedChannelAmountHint.value
   if (userAuthStore.isAuthenticated) return ''
   if (checkoutMode.value !== 'guest') return t('checkout.errors.loginOrGuest')
@@ -1122,7 +1071,7 @@ const handleSubmit = async () => {
     const payload = {
       ...buildOrderPayload(),
       channel_id: requiresOnlineChannel.value ? (selectedChannelId.value || undefined) : undefined,
-      use_balance: useBalance.value,
+      use_balance: false,
     }
 
     let responseData: any
@@ -1177,10 +1126,6 @@ watch(
   { deep: true }
 )
 
-watch(walletOnlyPayment, (v) => {
-  if (v) useBalance.value = true
-}, { immediate: true })
-
 watch(normalizedCouponCode, (value, previous) => {
   if (value === previous) return
   couponRefreshing.value = true
@@ -1207,24 +1152,10 @@ watch(
   { deep: true }
 )
 
-const loadWalletBalance = async () => {
-  if (!userAuthStore.isAuthenticated) return
-  walletLoading.value = true
-  try {
-    const response = await walletAPI.account()
-    walletBalance.value = String(response.data.data?.balance || '0')
-  } catch {
-    walletBalance.value = '0'
-  } finally {
-    walletLoading.value = false
-  }
-}
-
 onMounted(async () => {
   await appStore.loadConfig(true)
   await syncCartStockSnapshots()
   debouncedLoadPreview()
-  loadWalletBalance()
 })
 
 onUnmounted(() => {
