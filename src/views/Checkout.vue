@@ -260,6 +260,32 @@
             <h3 class="mb-3 text-sm font-bold theme-text-primary">{{ t('checkout.paymentMethod') }}</h3>
 
             <!-- Wallet Balance -->
+              <div v-if="userAuthStore.isAuthenticated" class="mb-3 rounded-lg border theme-surface-soft p-3 text-sm">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <div class="theme-text-muted">{{ t('payment.walletBalanceLabel') }}</div>
+                    <div class="mt-1 font-semibold theme-text-primary">
+                      {{ walletLoading ? t('common.loading') : formatPrice(walletAccount?.balance || '0.00', previewCurrency) }}
+                    </div>
+                    <div v-if="useBalance && expectedWalletPaidCents > 0" class="mt-1 text-xs theme-text-muted">
+                      <span v-if="requiresOnlineChannel">
+                        {{ t('payment.walletDeductLabel') }}：{{ expectedWalletPaidDisplay }}，{{ t('payment.onlinePayLabel') }}：{{ expectedOnlinePayDisplay }}
+                      </span>
+                      <span v-else>{{ t('payment.walletCoversAll') }}</span>
+                    </div>
+                  </div>
+                  <label class="flex items-center gap-2 text-xs theme-text-primary select-none">
+                    <input v-model="useBalance" type="checkbox" :disabled="!canUseWalletBalance" />
+                    <span>{{ t('payment.useBalance') }}</span>
+                  </label>
+                </div>
+                <div v-if="!canUseWalletBalance" class="mt-2 text-xs text-amber-600">
+                  {{ t('payment.walletInsufficientHint') }}
+                </div>
+                <div v-else-if="useBalance && !requiresOnlineChannel" class="mt-2 text-xs text-emerald-600">
+                  {{ t('payment.walletPayOnly') }}
+                </div>
+              </div>
               <div v-if="requiresOnlineChannel && paymentChannels.length > 0" class="grid grid-cols-2 gap-2">
                 <button v-for="channel in paymentChannels" :key="channel.id"
                   type="button"
@@ -307,7 +333,7 @@ import { useCartStore, type CartItem } from '../stores/cart'
 import { useBuyNowStore } from '../stores/buyNow'
 import { useAppStore } from '../stores/app'
 import { useUserAuthStore } from '../stores/userAuth'
-import { guestOrderAPI, userOrderAPI, type CaptchaPayload } from '../api'
+import { guestOrderAPI, userOrderAPI, walletAPI, type CaptchaPayload } from '../api'
 import { debounceAsync } from '../utils/debounce'
 import { pageAlertClass, type PageAlert } from '../utils/alerts'
 import { amountToCents, basisPointsToPercent, centsToAmount, parseInteger, rateToBasisPoints } from '../utils/money'
@@ -350,6 +376,9 @@ const couponRefreshing = ref(false)
 const syncingStock = ref(false)
 const orderPaymentChannels = ref<any[]>([])
 const orderPaymentChannelsRequestId = ref(0)
+const walletAccount = ref<{ balance?: string } | null>(null)
+const walletLoading = ref(false)
+const useBalance = ref(true)
 
 // Payment state
 const selectedChannelId = ref<number | null>(null)
@@ -391,7 +420,17 @@ const paymentChannels = computed(() => {
   return filtered
 })
 
-const expectedWalletPaidCents = computed(() => 0)
+const walletBalanceCents = computed(() => {
+  if (!userAuthStore.isAuthenticated) return 0
+  return amountToCents(walletAccount.value?.balance) || 0
+})
+const canUseWalletBalance = computed(() => userAuthStore.isAuthenticated && walletBalanceCents.value > 0)
+const expectedWalletPaidCents = computed(() => {
+  if (!useBalance.value || !canUseWalletBalance.value) return 0
+  const total = amountToCents(previewTotal.value)
+  if (total === null || total <= 0) return 0
+  return Math.min(walletBalanceCents.value, total)
+})
 const expectedOnlinePayCents = computed(() => {
   const total = amountToCents(previewTotal.value)
   if (total === null) return 0
@@ -890,6 +929,25 @@ const previewStatusText = computed(() => couponRefreshing.value
   ? t('checkout.couponRefreshing')
   : t('checkout.previewLoading'))
 
+const expectedWalletPaidDisplay = computed(() => formatPrice(centsToAmount(expectedWalletPaidCents.value), previewCurrency.value))
+const expectedOnlinePayDisplay = computed(() => formatPrice(centsToAmount(expectedOnlinePayCents.value), previewCurrency.value))
+
+const loadWalletAccount = async () => {
+  if (!userAuthStore.isAuthenticated) {
+    walletAccount.value = null
+    return
+  }
+  walletLoading.value = true
+  try {
+    const response = await walletAPI.account()
+    walletAccount.value = response.data.data || null
+  } catch {
+    walletAccount.value = null
+  } finally {
+    walletLoading.value = false
+  }
+}
+
 const checkoutAlert = computed<PageAlert | null>(() => {
   if (error.value) {
     return { level: 'error' as const, message: error.value }
@@ -1071,7 +1129,7 @@ const handleSubmit = async () => {
     const payload = {
       ...buildOrderPayload(),
       channel_id: requiresOnlineChannel.value ? (selectedChannelId.value || undefined) : undefined,
-      use_balance: false,
+      use_balance: useBalance.value,
     }
 
     let responseData: any
@@ -1154,9 +1212,18 @@ watch(
 
 onMounted(async () => {
   await appStore.loadConfig(true)
+  await loadWalletAccount()
   await syncCartStockSnapshots()
   debouncedLoadPreview()
 })
+
+watch(
+  () => userAuthStore.isAuthenticated,
+  () => {
+    void loadWalletAccount()
+  },
+  { immediate: true }
+)
 
 onUnmounted(() => {
   debouncedLoadPreview.cancel()

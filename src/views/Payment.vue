@@ -213,11 +213,11 @@
                   <span class="theme-text-muted">{{ t('payment.feeAmountLabel') }}</span>
                   <span class="font-medium theme-text-primary">{{ feeAmountDisplay }}</span>
                 </div>
-                <div v-if="false" class="flex items-center justify-between gap-4">
+                <div v-if="canUseWalletBalance" class="flex items-center justify-between gap-4">
                   <span class="theme-text-muted">{{ t('payment.walletDeductLabel') }}</span>
                   <span class="font-medium theme-text-primary">{{ expectedWalletPaidDisplay }}</span>
                 </div>
-                <div v-if="false" class="flex items-center justify-between gap-4">
+                <div v-if="canUseWalletBalance && requiresOnlineChannel" class="flex items-center justify-between gap-4">
                   <span class="theme-text-muted">{{ t('payment.onlinePayLabel') }}</span>
                   <span class="font-medium theme-text-primary">{{ expectedOnlinePayDisplay }}</span>
                 </div>
@@ -290,6 +290,35 @@
               {{ t('common.loading') }}
             </div>
             <template v-else>
+              <div
+                v-if="!isGuest"
+                class="mb-4 rounded-xl border p-4 text-sm theme-surface-soft"
+              >
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <div class="font-semibold theme-text-primary">{{ t('payment.walletBalanceLabel') }}</div>
+                    <div class="mt-1 text-lg font-bold theme-text-primary">
+                      {{ walletLoading ? t('common.loading') : formatMoney(walletAccount?.balance || '0.00', order?.currency) }}
+                    </div>
+                    <div v-if="useBalance && expectedWalletPaidCents > 0" class="mt-2 text-xs theme-text-muted">
+                      <span v-if="requiresOnlineChannel">
+                        {{ t('payment.walletDeductLabel') }}：{{ expectedWalletPaidDisplay }}，{{ t('payment.onlinePayLabel') }}：{{ expectedOnlinePayDisplay }}
+                      </span>
+                      <span v-else>{{ t('payment.walletCoversAll') }}</span>
+                    </div>
+                  </div>
+                  <label class="flex items-center gap-2 text-xs theme-text-primary select-none">
+                    <input v-model="useBalance" type="checkbox" :disabled="!canUseWalletBalance" />
+                    <span>{{ t('payment.useBalance') }}</span>
+                  </label>
+                </div>
+                <div v-if="!canUseWalletBalance" class="mt-2 text-xs text-amber-600">
+                  {{ t('payment.walletInsufficientHint') }}
+                </div>
+                <div v-else-if="useBalance && !requiresOnlineChannel" class="mt-2 text-xs text-emerald-600">
+                  {{ t('payment.walletPayOnly') }}
+                </div>
+              </div>
               <div v-if="cachedPayment"
                 class="mb-4 rounded-xl border p-4 text-sm space-y-2 theme-alert-warning">
                 <div class="font-semibold">{{ t('payment.cachedTitle') }}</div>
@@ -311,7 +340,7 @@
               <PaymentChannelSelector
                 :channels="channels"
                 :model-value="selectedChannelId"
-                :show-balance-option="false"
+                :show-balance-option="useBalance"
                 :format-channel-fee-rate="formatChannelFeeRate"
                 :format-channel-fixed-fee="formatChannelFixedFee"
                 :is-channel-disabled-for-amount="isChannelDisabledForAmount"
@@ -417,7 +446,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { NavigationFailureType, isNavigationFailure, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { guestOrderAPI, paymentAPI, userOrderAPI } from '../api'
+import { guestOrderAPI, paymentAPI, userOrderAPI, walletAPI } from '../api'
 import { useAppStore } from '../stores/app'
 import { useTelegramMiniAppStore } from '../stores/telegramMiniApp'
 import { orderStatusLabel } from '../utils/status'
@@ -441,8 +470,11 @@ const loading = ref(true)
 const submitting = ref(false)
 const order = ref<any>(null)
 const paymentResult = ref<any>(null)
+const walletAccount = ref<{ balance?: string } | null>(null)
+const walletLoading = ref(false)
 const error = ref('')
 const selectedChannelId = ref<number | null>(null)
+const useBalance = ref(true)
 const copied = ref(false)
 const capturing = ref(false)
 const redirecting = ref(false)
@@ -527,6 +559,13 @@ const flowSteps = computed(() => ([
   { key: 'checkout', label: t('checkout.title'), active: false },
   { key: 'payment', label: t('payment.title'), active: true },
 ]))
+
+const walletBalanceCents = computed(() => {
+  if (isGuest.value) return 0
+  return amountToCents(walletAccount.value?.balance) || 0
+})
+
+const canUseWalletBalance = computed(() => !isGuest.value && walletBalanceCents.value > 0)
 
 const filterChannelsByOrder = (list: any[]) => {
   if (!Array.isArray(list)) return []
@@ -783,7 +822,12 @@ const payableAmountDisplay = computed(() => {
   if (base === null || fee === null) return '-'
   return formatMoney(centsToAmount(base + fee), order.value?.currency)
 })
-const expectedWalletPaidCents = computed(() => 0)
+const expectedWalletPaidCents = computed(() => {
+  if (!useBalance.value || !canUseWalletBalance.value) return 0
+  const total = amountToCents(order.value?.total_amount)
+  if (total === null || total <= 0) return 0
+  return Math.min(walletBalanceCents.value, total)
+})
 const expectedOnlinePayCents = computed(() => {
   const total = amountToCents(order.value?.total_amount)
   if (total === null) return 0
@@ -862,6 +906,22 @@ const paymentOnlinePayDisplay = computed(() => {
   }
   return formatMoney(String(paymentResult.value.online_pay_amount), order.value?.currency)
 })
+
+const loadWalletAccount = async () => {
+  if (isGuest.value) {
+    walletAccount.value = null
+    return
+  }
+  walletLoading.value = true
+  try {
+    const response = await walletAPI.account()
+    walletAccount.value = response.data.data || null
+  } catch {
+    walletAccount.value = null
+  } finally {
+    walletLoading.value = false
+  }
+}
 
 const loadOrderPaymentChannels = async () => {
   if (isGuest.value) {
@@ -1257,7 +1317,7 @@ const performPayment = async () => {
     } else {
       const payload: any = {
         order_no: orderNoResolved.value,
-        use_balance: false,
+        use_balance: useBalance.value,
       }
       if (requiresOnlineChannel.value && selectedChannelId.value) {
         payload.channel_id = selectedChannelId.value
@@ -1452,6 +1512,7 @@ onMounted(() => {
     order_password: savedAuth.order_password || '',
   }
   loadOrder()
+  void loadWalletAccount()
   if (!appStore.config || !Array.isArray(appStore.config?.payment_channels)) {
     appStore.loadConfig(true)
   }
@@ -1484,6 +1545,14 @@ watch(
   () => [isGuest.value, orderNoResolved.value, requiresOnlineChannel.value, expectedOnlinePayCents.value, order.value?.status],
   () => {
     void debouncedLoadOrderPaymentChannels()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => isGuest.value,
+  () => {
+    void loadWalletAccount()
   },
   { immediate: true }
 )
