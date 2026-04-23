@@ -849,7 +849,7 @@
           <div class="flex justify-between mb-20">
             <p>查看团队伙伴按天结算和累计结算的树状汇总</p>
             <div class="flex gap-10">
-              <input type="date" v-model="settleDate" value="2026-04-15">
+              <input type="date" v-model="settleDate">
               <input type="text" v-model="settlementKeyword" placeholder="输入邮箱或推广码筛选直属伙伴">
               <button class="btn btn-primary" @click="loadSettlement">查询</button>
               <button class="btn btn-default" @click="loadSettlement">刷新</button>
@@ -2296,7 +2296,15 @@ const menuList = [
 ]
 
 // 表单数据
-const settleDate = ref('2026-04-15')
+const getTodayDate = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const settleDate = ref(getTodayDate())
 const partnerRate = ref(15)
 const partnerKeyword = ref('')
 const teamKeyword = ref('')
@@ -2566,7 +2574,9 @@ const filteredOrders = computed(() => {
   return orders.value.filter(item => {
     const matchKeyword = !keyword || `${item.order_no} ${item.channel} ${item.product_name}`.toLowerCase().includes(keyword)
     const matchStatus = orderStatus.value === '全部' || (orderStatus.value === '仅看已退款' ? item.status.includes('退款') : item.status === orderStatus.value)
-    const matchSource = orderSource.value === '全部' || item.channel === orderSource.value
+    const matchSource = orderSource.value === '全部'
+      || (orderSource.value === '我的直销' && item.channel === '我的直销')
+      || (orderSource.value === '伙伴渠道' && item.channel !== '我的直销')
     return matchKeyword && matchStatus && matchSource
   })
 })
@@ -2662,6 +2672,21 @@ watch(
     }
   },
   { immediate: true, deep: true }
+)
+
+watch(
+  () => settleDate.value,
+  () => {
+    partnerDetailMap.value = {}
+    settlementDetailMap.value = {}
+  }
+)
+
+watch(
+  () => settlementKeyword.value,
+  () => {
+    settlementDetailMap.value = {}
+  }
 )
 
 const loadDashboard = async () => {
