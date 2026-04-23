@@ -28,5 +28,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: 
-            xingwei02/dujiao-next-user:atest-cliv11
+            xingwei02/dujiao-next-user:atest-cliv12
         
