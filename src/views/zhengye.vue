@@ -191,6 +191,104 @@
           </div>
         </div>
 
+        <!-- 1.5 加入官方群 -->
+        <div v-if="currentMenu === 'group'">
+          <h2 class="page-title">加入官方群</h2>
+          <p class="page-desc">这里统一查看你当前推广体系里的官方群公告、群二维码、上级/默认引导图，以及首页对外展示开关是否已开启。</p>
+
+          <div class="alert alert-blue mb-20">
+            <h4>当前展示规则</h4>
+            <p>这个页面是推广中心内部核对页；真正给外部访客展示时，还会同时受「客户优惠」中的首页官方群栏目开关控制。</p>
+          </div>
+
+          <div class="grid-3 mb-20">
+            <div class="card">
+              <div class="label">首页官方群栏目</div>
+              <div class="value" :class="discountSettings.group_section_enabled ? 'green' : 'red'">
+                {{ discountSettings.group_section_enabled ? '显示中' : '已隐藏' }}
+              </div>
+              <div class="sub">
+                {{ discountSettings.group_section_enabled ? '通过你链接进入的用户，可在首页底部看到官方群入口。' : '通过你链接进入的用户，当前看不到首页官方群入口。' }}
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="label">当前群公告</div>
+              <div class="value" style="font-size:16px;line-height:1.6;word-break:break-word;">
+                {{ contactInfo.notice || '暂未填写公告' }}
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="label">当前素材状态</div>
+              <div class="value">{{ groupSectionVisible ? '已具备展示内容' : '内容不足，暂不建议对外展示' }}</div>
+              <div class="sub">需同时关注：栏目开关、公告、群二维码/引导图是否齐全。</div>
+            </div>
+          </div>
+
+          <div class="grid-2 mb-20">
+            <div class="card">
+              <h3>官方群二维码</h3>
+              <p class="form-tip">优先展示你在「伙伴联系资料」里上传的官方群二维码。</p>
+              <div class="upload-placeholder">
+                <img
+                  v-if="contactInfo.group_image_url"
+                  :src="contactInfo.group_image_url"
+                  style="max-width:260px;max-height:260px;border-radius:12px;"
+                  alt="官方群二维码"
+                >
+                <p v-else>你还没有上传官方群二维码，可前往「伙伴联系资料」补充。</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>上级 / 默认引导图</h3>
+              <p class="form-tip">当你未上传自己的群图时，会继续回退到上级 / 管理员默认引导图。</p>
+              <div class="upload-placeholder">
+                <img
+                  v-if="contactInfo.parent_group_image_url"
+                  :src="contactInfo.parent_group_image_url"
+                  style="max-width:260px;max-height:260px;border-radius:12px;"
+                  alt="官方群引导图"
+                >
+                <p v-else>当前没有上级 / 默认引导图。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>对外展示预览</h3>
+            <p class="form-tip">这里按首页「扫码加入官方群」的语义做预览，方便你直接核对当前素材是否完整。</p>
+
+            <div v-if="groupSectionVisible">
+              <div class="preview-box mb-20">
+                <strong>扫码加入官方群</strong>
+                <p style="margin-top:8px;color:#666;line-height:1.7;">{{ contactInfo.notice || '当前未填写公告' }}</p>
+              </div>
+
+              <div class="grid-2">
+                <div class="card" v-if="contactInfo.group_image_url">
+                  <h4 style="margin-bottom: 12px;">官方群二维码</h4>
+                  <img :src="contactInfo.group_image_url" alt="官方群二维码" style="max-width:100%;max-height:320px;border-radius:12px;object-fit:contain;display:block;margin:0 auto;">
+                </div>
+                <div class="card" v-if="contactInfo.parent_group_image_url">
+                  <h4 style="margin-bottom: 12px;">官方群引导图</h4>
+                  <img :src="contactInfo.parent_group_image_url" alt="官方群引导图" style="max-width:100%;max-height:320px;border-radius:12px;object-fit:contain;display:block;margin:0 auto;">
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="empty-tip">
+              当前公开展示条件未满足。你可以先去「伙伴联系资料」补公告/群图，再去「客户优惠」打开首页官方群栏目。
+            </div>
+
+            <div class="flex gap-10 mt-15">
+              <button class="btn btn-default" @click="currentMenu = 'contact'">去完善伙伴联系资料</button>
+              <button class="btn btn-primary" @click="currentMenu = 'discount'">去设置首页官方群开关</button>
+            </div>
+          </div>
+        </div>
+
         <!-- 2. 封神榜 -->
         <div v-if="currentMenu === 'rank'">
           <div class="page-header">
@@ -476,8 +574,8 @@
           <p class="page-desc">给你带来的伙伴设置档位、返佣和升级规则，卖得越多，自动升档，越往上越厉害，赚得越多。</p>
 
           <div class="card success-card mb-20">
-            <p>卖 ¥100，到手 ¥{{ formatMoney(levels.my_rate) }}</p>
-            <h3>你现在每卖 ¥100 商品<br>赚 ¥{{ formatMoney(levels.my_rate) }}</h3>
+            <p>卖 ¥100，到手 ¥{{ formatMoney(currentCommissionRate) }}</p>
+            <h3>你现在每卖 ¥100 商品<br>赚 ¥{{ formatMoney(currentCommissionRate) }}</h3>
             <p>你的团队伙伴越多、团队做得越好，你赚得也会更多 💪</p>
           </div>
 
@@ -928,7 +1026,7 @@
           <template v-else>
             <div class="alert alert-blue mb-20">
               <h4>我的结算</h4>
-              <p>这里展示你的余额总览、余额流水，并提供佣金转余额入口。当前后端已支持余额、流水、转余额接口。</p>
+              <p>这里展示你的余额总览、余额流水、佣金转余额、提现申请、提现记录与提现规则说明，形成推广中心内的完整资金闭环。</p>
             </div>
 
             <div class="grid-4 mb-20">
@@ -951,8 +1049,62 @@
               </div>
             </div>
 
-            <div class="grid-2 mb-20">
+            <div class="grid-3 mb-20">
               <div class="card">
+                <h3>提现规则</h3>
+                <div class="stat-item">
+                  <div class="label">当前状态</div>
+                  <div class="value" :class="withdrawSettings.enabled ? 'green' : 'red'">
+                    {{ withdrawSettings.enabled ? '可申请提现' : '暂未开放提现' }}
+                  </div>
+                </div>
+                <div class="stat-item">
+                  <div class="label">最低提现金额</div>
+                  <div class="value">¥{{ withdrawSettings.min_amount || '0.00' }}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="label">手续费率</div>
+                  <div class="value">{{ formatPercent(withdrawSettings.fee_rate || 0) }}</div>
+                </div>
+                <div class="sub text-gray">提现间隔：{{ withdrawSettings.interval_days || 0 }} 天；{{ withdrawSettings.require_realname ? '需填写实名' : '实名非必填' }}</div>
+              </div>
+
+              <div class="card">
+                <h3>当前提现测算</h3>
+                <div class="stat-item">
+                  <div class="label">本次申请金额</div>
+                  <div class="value">¥{{ formatMoney(withdrawForm.amount || 0) }}</div>
+                </div>
+                <div class="stat-item">
+                  <div class="label">预计手续费</div>
+                  <div class="value orange">¥{{ withdrawFeePreview }}</div>
+                </div>
+                <div class="stat-item highlight">
+                  <div class="label">预计到账</div>
+                  <div class="value green">¥{{ withdrawActualPreview }}</div>
+                </div>
+                <div class="sub text-gray">说明：最终到账金额以后端校验与审核结果为准。</div>
+              </div>
+
+              <div class="card">
+                <h3>资金操作快捷入口</h3>
+                <div class="link-item" @click="scrollToMineSection('withdraw-form')">
+                  <span>去提交提现申请</span>
+                  <span>→</span>
+                </div>
+                <div class="link-item" @click="scrollToMineSection('withdraw-records')">
+                  <span>看提现记录</span>
+                  <span>→</span>
+                </div>
+                <div class="link-item" @click="scrollToMineSection('transfer-box')">
+                  <span>去做佣金转余额</span>
+                  <span>→</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2 mb-20">
+              <div class="card" data-mine-section="transfer-box">
                 <h3>佣金转余额</h3>
                 <div class="card-header" style="padding:0 0 10px;border:none;display:flex;justify-content:space-between;align-items:center;gap:12px;">
                   <div class="text-sm text-gray">选择“可转余额”的佣金后批量转入余额。</div>
@@ -1038,6 +1190,97 @@
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <div class="grid-2 mb-20">
+              <div class="card" data-mine-section="withdraw-form">
+                <div class="card-header">
+                  <h3>提现申请</h3>
+                  <button class="btn btn-default btn-sm" :disabled="submittingWithdraw" @click="loadWithdrawData">刷新规则</button>
+                </div>
+                <div class="form-item">
+                  <label>申请金额</label>
+                  <input v-model.number="withdrawForm.amount" type="number" min="0" step="0.01" placeholder="请输入要提现的金额">
+                  <p class="form-tip">当前可用余额：¥{{ myBalance.balance || '0.00' }}；最低提现金额：¥{{ withdrawSettings.min_amount || '0.00' }}</p>
+                </div>
+                <div class="form-item">
+                  <label>支付宝账号</label>
+                  <input v-model.trim="withdrawForm.alipay_account" type="text" placeholder="请输入支付宝账号">
+                </div>
+                <div class="form-item">
+                  <label>收款实名</label>
+                  <input v-model.trim="withdrawForm.real_name" type="text" :placeholder="withdrawSettings.require_realname ? '请输入真实姓名' : '如规则要求可填写'">
+                </div>
+                <div class="form-item">
+                  <label>邮箱验证码</label>
+                  <input v-model.trim="withdrawForm.verify_code" type="text" placeholder="请输入邮箱验证码">
+                </div>
+                <div class="preview-box mb-15">
+                  <div class="grid-3">
+                    <div class="text-center">
+                      <div class="text-sm text-gray">申请金额</div>
+                      <div class="text-lg">¥{{ formatMoney(withdrawForm.amount || 0) }}</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-sm text-gray">手续费</div>
+                      <div class="text-lg orange">¥{{ withdrawFeePreview }}</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-sm text-gray">预计到账</div>
+                      <div class="text-lg green">¥{{ withdrawActualPreview }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-sm text-gray mb-10">
+                  提现申请提交后会进入审核；若被驳回，资金通常回退到余额，具体以后台审核结果与规则配置为准。
+                </div>
+                <button class="btn btn-primary btn-block" :disabled="submittingWithdraw || !withdrawSettings.enabled" @click="handleApplyWithdraw">
+                  {{ submittingWithdraw ? '提交中...' : (withdrawSettings.enabled ? '提交提现申请' : '当前未开放提现') }}
+                </button>
+              </div>
+
+              <div class="card" data-mine-section="withdraw-records">
+                <div class="card-header">
+                  <h3>提现记录</h3>
+                  <button class="btn btn-default btn-sm" :disabled="withdrawingLoading" @click="loadWithdrawData">刷新记录</button>
+                </div>
+                <table class="detail-table">
+                  <thead>
+                    <tr>
+                      <th>申请时间</th>
+                      <th>金额 / 手续费 / 到账</th>
+                      <th>账号</th>
+                      <th>状态</th>
+                      <th>说明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in withdrawRequests.items" :key="`withdraw-${item.id}`">
+                      <td>
+                        <div>{{ item.created_at || '-' }}</div>
+                        <div class="text-sm text-gray">处理：{{ item.processed_at || '待处理' }}</div>
+                      </td>
+                      <td>
+                        <div>申请：¥{{ item.amount }}</div>
+                        <div class="text-sm text-orange">手续费：¥{{ item.fee }}</div>
+                        <div class="text-sm green">到账：¥{{ item.actual_amount }}</div>
+                      </td>
+                      <td>
+                        <div>{{ item.account || '-' }}</div>
+                        <div class="text-sm text-gray">实名：{{ item.alipay_name || '-' }}</div>
+                      </td>
+                      <td>
+                        <span class="tag" :class="withdrawStatusClass(item.status)">{{ formatWithdrawStatus(item.status) }}</span>
+                      </td>
+                      <td>{{ item.reject_reason || '-' }}</td>
+                    </tr>
+                    <tr v-if="!withdrawRequests.items.length">
+                      <td colspan="5" class="text-center text-gray">暂无提现记录</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="text-sm text-gray mt-10">共 {{ withdrawRequests.total || 0 }} 条，第 {{ withdrawRequests.page || 1 }} 页</div>
               </div>
             </div>
           </template>
@@ -1141,8 +1384,8 @@
           </div>
 
           <div class="alert alert-gray mb-20">
-            <p><strong>当前生效比例: {{ formatPercent(levels.entry_rate) }}</strong></p>
-            <p>当前新加入的直属伙伴会先按入门档 {{ formatPercent(levels.entry_rate) }} 生效；后续升档后，实际结算会按他所在档位自动变化。</p>
+            <p><strong>当前我的实际比例: {{ formatPercent(currentCommissionRate) }}</strong></p>
+            <p>当前新加入的直属伙伴会先按入门档 {{ formatPercent(levels.entry_rate) }} 生效；而我自己当前实际生效比例按上级等级体系取值，现为 {{ formatPercent(currentCommissionRate) }}。</p>
           </div>
 
           <div class="card">
@@ -1550,6 +1793,7 @@ type DashboardData = {
   promotion_path?: string
   has_parent?: boolean
   entry_rate?: number
+  effective_commission_rate?: number
   my_commission_rate?: number
   max_commission_rate?: number
   upgrade_condition?: string
@@ -1590,6 +1834,7 @@ type StatsSection = {
 type StatsData = {
   today?: StatsSection
   total?: StatsSection
+  effective_commission_rate?: number
   commission_rate?: number
   discount_rate?: number
   paid_settlement?: string
@@ -1822,6 +2067,36 @@ type BalanceLogsData = {
   page_size: number
 }
 
+type WithdrawSettingsData = {
+  id?: number
+  min_amount?: string
+  interval_days?: number
+  fee_rate?: number
+  require_realname?: boolean
+  enabled?: boolean
+}
+
+type WithdrawRequestItem = {
+  id: number
+  amount: string
+  fee: string
+  actual_amount: string
+  channel: string
+  account: string
+  alipay_name: string
+  status: string
+  reject_reason: string
+  created_at: string
+  processed_at: string
+}
+
+type WithdrawRequestsData = {
+  items: WithdrawRequestItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
 type StatsPeriod = '7d' | '30d' | '180d'
 
 type RuleMetric = 'orders' | 'sales'
@@ -1962,11 +2237,27 @@ const myBalance = ref<BalanceData>({
 })
 const balanceLogs = ref<BalanceLogsData>({ items: [], total: 0, page: 1, page_size: 20 })
 const transferableCommissions = ref<any>({ items: [], total: 0, page: 1, page_size: 100 })
+const withdrawSettings = ref<WithdrawSettingsData>({
+  min_amount: '0.00',
+  interval_days: 0,
+  fee_rate: 0,
+  require_realname: false,
+  enabled: false,
+})
+const withdrawRequests = ref<WithdrawRequestsData>({ items: [], total: 0, page: 1, page_size: 20 })
 const selectedTransferCommissionIDs = ref<number[]>([])
 const transferForm = ref({
   verify_code: '',
 })
+const withdrawForm = ref({
+  amount: 0,
+  alipay_account: '',
+  real_name: '',
+  verify_code: '',
+})
 const transferringBalance = ref(false)
+const submittingWithdraw = ref(false)
+const withdrawingLoading = ref(false)
 const savingContact = ref(false)
 const savingDiscount = ref(false)
 const savingLevels = ref(false)
@@ -1992,6 +2283,7 @@ const editorForm = ref<EditorForm>({
 })
 const menuList = [
   { key: 'home', name: '先看这里' },
+  { key: 'group', name: '加入官方群' },
   { key: 'rank', name: '封神榜' },
   { key: 'data', name: '详细数据' },
   { key: 'level', name: '伙伴等级返佣' },
@@ -2134,10 +2426,13 @@ const trendSegments = computed(() => {
     }
   })
 })
+
 const currentCommissionRate = computed(() => {
+  if (typeof dashboard.value.effective_commission_rate === 'number') return dashboard.value.effective_commission_rate
+  if (typeof stats.value.effective_commission_rate === 'number') return stats.value.effective_commission_rate
+  if (typeof stats.value.commission_rate === 'number') return stats.value.commission_rate
   if (typeof dashboard.value.my_commission_rate === 'number') return dashboard.value.my_commission_rate
   if (typeof levels.value.entry_rate === 'number' && levels.value.entry_rate > 0) return levels.value.entry_rate
-  if (typeof stats.value.commission_rate === 'number') return stats.value.commission_rate
   return 0
 })
 const canConfigureLevels = computed(() => Boolean(dashboard.value.has_parent))
@@ -2175,6 +2470,17 @@ const hasParentContact = computed(() => {
     dashboard.value.parent_contact_wx ||
     dashboard.value.parent_contact_other ||
     dashboard.value.parent_announcement
+  )
+})
+
+const groupSectionVisible = computed(() => {
+  return !!(
+    discountSettings.value.group_section_enabled &&
+    (
+      contactInfo.value.notice ||
+      contactInfo.value.group_image_url ||
+      contactInfo.value.parent_group_image_url
+    )
   )
 })
 
@@ -2272,6 +2578,17 @@ const selectedTransferCommissionAmount = computed(() =>
     }, 0)
     .toFixed(2)
 )
+const withdrawFeePreview = computed(() => {
+  const amount = Number(withdrawForm.value.amount || 0)
+  const feeRate = Number(withdrawSettings.value.fee_rate || 0)
+  if (amount <= 0 || feeRate <= 0) return '0.00'
+  return (amount * feeRate / 100).toFixed(2)
+})
+const withdrawActualPreview = computed(() => {
+  const amount = Number(withdrawForm.value.amount || 0)
+  const fee = Number(withdrawFeePreview.value || 0)
+  return Math.max(0, amount - fee).toFixed(2)
+})
 
 const getLevelTheme = (level: Pick<LevelItem, 'style' | 'is_entry'>): LevelTheme => {
   if (level.is_entry) return bronzeTheme
@@ -2527,6 +2844,23 @@ const loadBalanceData = async () => {
   }
 }
 
+const loadWithdrawData = async () => {
+  try {
+    withdrawingLoading.value = true
+    const [settings, requests] = await Promise.all([
+      zhengyeAPI.getWithdrawSettings(),
+      zhengyeAPI.getWithdrawRequests({ page: 1, page_size: 20 }),
+    ])
+    withdrawSettings.value = settings
+    withdrawRequests.value = requests
+  } catch (error) {
+    console.error('加载提现数据失败:', error)
+    window.alert('加载提现规则或记录失败，请稍后重试')
+  } finally {
+    withdrawingLoading.value = false
+  }
+}
+
 const toggleTransferCommission = (id: number) => {
   if (!id) return
   if (selectedTransferCommissionIDs.value.includes(id)) {
@@ -2576,6 +2910,85 @@ const handleTransferToBalance = async () => {
     window.alert('佣金转余额失败，请检查勾选记录、金额和验证码后重试')
   } finally {
     transferringBalance.value = false
+  }
+}
+
+const formatWithdrawStatus = (status?: string) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'pending_review') return '待审核'
+  if (normalized === 'rejected') return '已驳回'
+  if (normalized === 'paid') return '已打款'
+  return status || '未知状态'
+}
+
+const withdrawStatusClass = (status?: string) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'paid') return 'green'
+  if (normalized === 'rejected') return 'red'
+  return 'blue'
+}
+
+const scrollToMineSection = (section: string) => {
+  const el = document.querySelector(`[data-mine-section="${section}"]`)
+  if (el && 'scrollIntoView' in el) {
+    ;(el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+const handleApplyWithdraw = async () => {
+  const amount = Number(withdrawForm.value.amount || 0)
+  const minAmount = Number(withdrawSettings.value.min_amount || 0)
+  const balance = Number(myBalance.value.balance || 0)
+  if (!withdrawSettings.value.enabled) {
+    window.alert('当前未开放提现')
+    return
+  }
+  if (!amount || amount <= 0) {
+    window.alert('请输入有效提现金额')
+    return
+  }
+  if (amount < minAmount) {
+    window.alert(`提现金额不能低于 ¥${formatMoney(withdrawSettings.value.min_amount || 0)}`)
+    return
+  }
+  if (amount > balance) {
+    window.alert('提现金额不能超过当前可用余额')
+    return
+  }
+  if (!withdrawForm.value.alipay_account.trim()) {
+    window.alert('请填写支付宝账号')
+    return
+  }
+  if (withdrawSettings.value.require_realname && !withdrawForm.value.real_name.trim()) {
+    window.alert('当前提现规则要求填写收款实名')
+    return
+  }
+  if (!withdrawForm.value.verify_code.trim()) {
+    window.alert('请输入邮箱验证码')
+    return
+  }
+
+  try {
+    submittingWithdraw.value = true
+    await zhengyeAPI.applyWithdraw({
+      amount,
+      alipay_account: withdrawForm.value.alipay_account.trim(),
+      real_name: withdrawForm.value.real_name.trim(),
+      verify_code: withdrawForm.value.verify_code.trim(),
+    })
+    window.alert('提现申请已提交')
+    withdrawForm.value = {
+      amount: 0,
+      alipay_account: '',
+      real_name: '',
+      verify_code: '',
+    }
+    await Promise.all([loadBalanceData(), loadWithdrawData()])
+  } catch (error) {
+    console.error('提现申请失败:', error)
+    window.alert('提现申请失败，请检查金额、账号、实名和验证码后重试')
+  } finally {
+    submittingWithdraw.value = false
   }
 }
 
@@ -2697,6 +3110,7 @@ const handleLevelsSave = async (payload: LevelsData) => {
     savingLevels.value = true
     const saved = await zhengyeAPI.saveLevels(payload)
     levels.value = saved
+    await Promise.all([loadDashboard(), loadStats(statsPeriod.value)])
     window.alert('伙伴等级返佣已保存')
   } catch (error) {
     console.error('保存 levels 失败:', error)
@@ -2757,6 +3171,7 @@ const saveDiscountSettings = async () => {
 
     await zhengyeAPI.saveDiscount(payload)
     discountSettings.value = { ...payload }
+    await Promise.all([loadDashboard(), loadStats(statsPeriod.value)])
     window.alert('客户优惠设置已保存')
   } catch (error) {
     console.error('保存 discount 失败:', error)
@@ -3115,6 +3530,7 @@ onMounted(() => {
   loadSettlement()
   loadOrders()
   loadBalanceData()
+  loadWithdrawData()
 })
 </script>
 

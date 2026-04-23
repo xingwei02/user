@@ -11,6 +11,7 @@ type DashboardData = {
   affiliate_code?: string
   promotion_path?: string
   has_parent?: boolean
+  effective_commission_rate?: number
   my_commission_rate?: number
   max_commission_rate?: number
   upgrade_condition?: string
@@ -30,6 +31,7 @@ type DashboardData = {
 type StatsData = {
   today?: Record<string, any>
   total?: Record<string, any>
+  effective_commission_rate?: number
   commission_rate?: number
   discount_rate?: number
   paid_settlement?: string
@@ -74,6 +76,37 @@ type BalanceLogsData = {
   page: number
   page_size: number
 }
+
+export type WithdrawSettingsData = {
+  id?: number
+  min_amount?: string
+  interval_days?: number
+  fee_rate?: number
+  require_realname?: boolean
+  enabled?: boolean
+}
+
+export type WithdrawRequestItem = {
+  id: number
+  amount: string
+  fee: string
+  actual_amount: string
+  channel: string
+  account: string
+  alipay_name: string
+  status: string
+  reject_reason: string
+  created_at: string
+  processed_at: string
+}
+
+export type WithdrawRequestsData = {
+  items: WithdrawRequestItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
 type TransferableCommissionItem = {
   id: number
   order_id: number
@@ -152,21 +185,22 @@ type TeamData = {
   page: number
   page_size: number
 }
+type SettlementSummary = {
+  direct_nodes: number
+  orders: number
+  total_sales: string
+  refund_amount: string
+  net_sales: string
+  original_settlement: string
+  refund_deduction: string
+  net_settlement: string
+  net_settlement_rate: string
+  paid_amount: string
+  unpaid_amount: string
+}
 type SettlementData = {
   date: string
-  summary: {
-    direct_nodes: number
-    orders: number
-    total_sales: string
-    refund_amount: string
-    net_sales: string
-    original_settlement: string
-    refund_deduction: string
-    net_settlement: string
-    net_settlement_rate: string
-    paid_amount: string
-    unpaid_amount: string
-  }
+  summary: SettlementSummary
   items: Array<{
     id: number
     code: string
@@ -287,6 +321,7 @@ const mapDashboard = (data: any): DashboardData => ({
   affiliate_code: data?.affiliate_code || '',
   promotion_path: data?.promotion_path || '',
   has_parent: Boolean(data?.has_parent),
+  effective_commission_rate: data?.effective_commission_rate != null ? Number(data?.effective_commission_rate) : undefined,
   my_commission_rate: Number(data?.my_rate ?? 0),
   max_commission_rate: Number(data?.max_commission_rate ?? data?.my_rate ?? 0),
   upgrade_condition: data?.upgrade_condition || '',
@@ -332,6 +367,7 @@ const mapStats = (data: any): StatsData => ({
     refund_amount: data?.total?.refund_amount != null ? formatMoney(data?.total?.refund_amount) : undefined,
     self_refund: data?.total?.self_refund != null ? formatMoney(data?.total?.self_refund) : undefined,
   },
+  effective_commission_rate: data?.effective_commission_rate != null ? Number(data?.effective_commission_rate) : undefined,
   commission_rate: data?.commission_rate != null ? Number(data?.commission_rate) : undefined,
   discount_rate: data?.discount_rate != null ? Number(data?.discount_rate) : undefined,
   paid_settlement: data?.paid_settlement != null ? formatMoney(data?.paid_settlement) : undefined,
@@ -456,31 +492,21 @@ const mapTeam = (data: any): TeamData => ({
 
 const mapSettlement = (data: any): SettlementData => {
   const items = Array.isArray(data?.items) ? data.items : []
-  // 从 items 聚合 summary
-  let totalPending = 0
-  let totalSettled = 0
-  let totalSales = 0
-  let totalOrders = 0
-  for (const item of items) {
-    totalPending += Number(item.pending_amount ?? 0)
-    totalSettled += Number(item.settled_amount ?? 0)
-    totalSales += Number(item.total_sales ?? 0)
-    totalOrders += Number(item.self_orders ?? 0) + Number(item.team_orders ?? 0)
-  }
+  const summary = data?.summary || {}
   return {
     date: items[0]?.settle_date || '',
     summary: {
-      direct_nodes: Number(data?.total ?? 0),
-      orders: totalOrders,
-      total_sales: formatMoney(totalSales),
-      refund_amount: '0.00',
-      net_sales: formatMoney(totalSales),
-      original_settlement: formatMoney(totalPending + totalSettled),
-      refund_deduction: '0.00',
-      net_settlement: formatMoney(totalPending),
-      net_settlement_rate: totalSales > 0 ? ((totalPending / totalSales) * 100).toFixed(2) : '0.00',
-      paid_amount: formatMoney(totalSettled),
-      unpaid_amount: formatMoney(totalPending),
+      direct_nodes: Number(summary?.direct_nodes ?? data?.total ?? 0),
+      orders: Number(summary?.orders ?? 0),
+      total_sales: formatMoney(summary?.total_sales),
+      refund_amount: formatMoney(summary?.refund_amount),
+      net_sales: formatMoney(summary?.net_sales),
+      original_settlement: formatMoney(summary?.original_settlement),
+      refund_deduction: formatMoney(summary?.refund_deduction),
+      net_settlement: formatMoney(summary?.net_settlement),
+      net_settlement_rate: String(summary?.net_settlement_rate ?? '0.00'),
+      paid_amount: formatMoney(summary?.paid_amount),
+      unpaid_amount: formatMoney(summary?.unpaid_amount),
     },
     items: items.map((item: any) => ({
       id: Number(item.user_id ?? 0),
@@ -490,17 +516,17 @@ const mapSettlement = (data: any): SettlementData => {
       self_sales: formatMoney(item.self_sales),
       team_sales: formatMoney(item.team_sales),
       total_sales: formatMoney(item.total_sales),
-      refund_amount: '0.00',
-      net_sales: formatMoney(item.total_sales),
+      refund_amount: formatMoney(item.refund_amount),
+      net_sales: formatMoney(item.net_sales ?? item.total_sales),
       self_orders: Number(item.self_orders ?? 0),
       team_orders: Number(item.team_orders ?? 0),
-      net_settlement: formatMoney(item.pending_amount),
-      original_settlement: formatMoney(Number(item.pending_amount ?? 0) + Number(item.settled_amount ?? 0)),
-      refund_deduction: '0.00',
-      settled_orders: 0,
-      pending_orders: 0,
-      direct_partners: 0,
-      total_partners: 0,
+      net_settlement: formatMoney(item.net_settlement ?? item.pending_amount),
+      original_settlement: formatMoney(item.original_settlement ?? (Number(item.pending_amount ?? 0) + Number(item.settled_amount ?? 0))),
+      refund_deduction: formatMoney(item.refund_deduction),
+      settled_orders: Number(item.settled_orders ?? 0),
+      pending_orders: Number(item.pending_orders ?? 0),
+      direct_partners: Number(item.direct_partners ?? 0),
+      total_partners: Number(item.total_partners ?? 0),
     })),
     total: Number(data?.total ?? 0),
     page: Number(data?.page ?? 1),
@@ -665,6 +691,36 @@ const mapTransferableCommissions = (data: any): TransferableCommissionData => ({
   page_size: Number(data?.page_size ?? 100),
 })
 
+const mapWithdrawSettings = (data: any): WithdrawSettingsData => ({
+  id: Number(data?.id ?? 0),
+  min_amount: formatMoney(data?.min_amount),
+  interval_days: Number(data?.interval_days ?? 0),
+  fee_rate: Number(data?.fee_rate ?? 0),
+  require_realname: Boolean(data?.require_realname),
+  enabled: Boolean(data?.enabled),
+})
+
+const mapWithdrawRequests = (data: any): WithdrawRequestsData => ({
+  items: Array.isArray(data?.items)
+    ? data.items.map((item: any) => ({
+        id: Number(item?.id ?? 0),
+        amount: formatMoney(item?.amount),
+        fee: formatMoney(item?.fee),
+        actual_amount: formatMoney(item?.actual_amount),
+        channel: item?.channel || '',
+        account: item?.account || '',
+        alipay_name: item?.alipay_name || '',
+        status: item?.status || '',
+        reject_reason: item?.reject_reason || '',
+        created_at: item?.created_at || '',
+        processed_at: item?.processed_at || '',
+      }))
+    : [],
+  total: Number(data?.total ?? 0),
+  page: Number(data?.page ?? 1),
+  page_size: Number(data?.page_size ?? 20),
+})
+
 export const zhengyeAPI = {
   /** 首页概览 */
   getDashboard: async (): Promise<DashboardData> => mapDashboard(await unwrap(userApi.get('/affiliate/dashboard-v2'))),
@@ -727,4 +783,10 @@ export const zhengyeAPI = {
     mapTransferableCommissions(await unwrap(userApi.get('/affiliate/transferable-commissions', { params }))),
   transferCommissionToBalance: async (data: { commission_ids: number[]; amount: number; verify_code?: string }): Promise<Record<string, unknown>> =>
     unwrap(userApi.post('/affiliate/transfer', data)),
+  getWithdrawSettings: async (): Promise<WithdrawSettingsData> =>
+    mapWithdrawSettings(await unwrap(userApi.get('/affiliate/withdraw-settings'))),
+  getWithdrawRequests: async (params?: { page?: number; page_size?: number }): Promise<WithdrawRequestsData> =>
+    mapWithdrawRequests(await unwrap(userApi.get('/affiliate/withdraw-requests', { params }))),
+  applyWithdraw: async (data: { amount: number; alipay_account: string; real_name: string; verify_code: string }): Promise<Record<string, unknown>> =>
+    unwrap(userApi.post('/affiliate/withdraw', data)),
 }
