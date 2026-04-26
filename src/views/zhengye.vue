@@ -1427,8 +1427,9 @@
                         </div>
                       </div>
                       <div class="flex items-center gap-5 mt-5">
-                        <input type="number" v-model.number="partnerRateDrafts[item.id]" style="width: 60px;">
-                        <span>%</span>
+                        <select v-model.number="partnerRateDrafts[item.id]" style="width: 120px; padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 12px;">
+                          <option v-for="lv in localLevels" :key="lv.id" :value="lv.rate">{{ lv.name }} ({{ lv.rate }}%)</option>
+                        </select>
                         <button class="btn btn-default btn-sm" :disabled="savingPartnerRateId === item.id" @click="savePartnerRate(item.id)">{{ savingPartnerRateId === item.id ? '保存中...' : '保存' }}</button>
                       </div>
                     </td>
@@ -2662,13 +2663,14 @@ const normalizeRule = (level: any): LevelRule => {
 
   const targetOrders = Number(condition.orders ?? condition.target_orders ?? 0)
   const targetAmount = Number(condition.targetValue ?? condition.target_value ?? condition.daily_amount ?? 0)
-  const metric: 'orders' | 'sales' = targetOrders > 0 && targetAmount <= 0 ? 'orders' : (condition.metric === 'orders' ? 'orders' : 'sales')
+  const rawMetric = condition.metric || condition.metric_type || ''
+  const metric: 'orders' | 'sales' = targetOrders > 0 && targetAmount <= 0 ? 'orders' : (rawMetric === 'orders' ? 'orders' : 'sales')
   const targetValue = metric === 'orders' ? targetOrders : targetAmount
 
   return {
     enabled: true,
     metric,
-    period: condition.period || 'daily',
+    period: condition.period || condition.period_type || 'daily',
     targetValue: Number(targetValue || 0),
     consecutiveDays: Number(condition.consecutiveDays ?? condition.consecutive_days ?? condition.days ?? 3),
   }
@@ -3366,6 +3368,8 @@ const saveCurrentLevel = async () => {
             days: Number(nextRule.consecutiveDays || 0),
             daily_amount: nextRule.metric === 'sales' ? Number(nextRule.targetValue || 0) : 0,
             orders: nextRule.metric === 'orders' ? Number(nextRule.targetValue || 0) : 0,
+            metric_type: nextRule.metric || 'sales',
+            period_type: nextRule.period || 'daily',
           },
     }
   })
@@ -3394,6 +3398,8 @@ const saveCurrentLevel = async () => {
             days: Number(normalizeRule(item).consecutiveDays || 0),
             daily_amount: normalizeRule(item).metric === 'sales' ? Number(normalizeRule(item).targetValue || 0) : 0,
             orders: normalizeRule(item).metric === 'orders' ? Number(normalizeRule(item).targetValue || 0) : 0,
+            metric_type: normalizeRule(item).metric || 'sales',
+            period_type: normalizeRule(item).period || 'daily',
           },
     })),
     team_by_level: nextTeamByLevel,
