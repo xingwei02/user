@@ -580,8 +580,9 @@
           </div>
 
           <div v-if="!canConfigureLevels" class="alert alert-gray mb-20">
-            <p><strong>当前账号没有上级</strong>，系统不会开放“升级规则”自由设置，避免出现无上级时档位规则异常。</p>
-            <p>当前首页显示为 0 属于无上级默认状态；只有通过上级推广链接加入后，才会继承上级的入门档与最高档规则。</p>
+            <p><strong>当前不可设置伙伴等级返佣</strong></p>
+            <p>{{ levelBlockReason }}</p>
+            <p>如果后台 admin 后续给当前账号设置了拿货折扣，你就可以继续配置伙伴等级；但所有下级档位都必须小于你自己的拿货折扣。</p>
           </div>
 
           <div class="card mb-20 level-config-card">
@@ -591,7 +592,7 @@
             <div v-if="!canConfigureLevels" class="levels-empty-state">
               <div class="levels-empty-icon">🔒</div>
               <h4>当前不可设置档位</h4>
-              <p>你现在没有上级，系统已禁止自由设置升级规则，避免出现漏洞。</p>
+              <p>{{ levelBlockReason }}</p>
             </div>
 
             <div v-else-if="!hasLevelConfig" class="levels-empty-state">
@@ -2105,6 +2106,7 @@ type RulePeriod = 'daily' | 'weekly'
 type LevelUpgradeCondition = {
   days: number
   daily_amount: number
+  orders?: number
 } | null
 
 type LevelRule = {
@@ -2142,6 +2144,8 @@ type LevelGroup = {
 type LevelsData = {
   my_rate: number
   entry_rate: number
+  can_configure?: boolean
+  block_reason?: string
   levels: LevelItem[]
   team_by_level: LevelGroup[]
 }
@@ -2186,6 +2190,8 @@ const discountSettings = ref<DiscountData>({
 const levels = ref<LevelsData>({
   my_rate: 0,
   entry_rate: 0,
+  can_configure: false,
+  block_reason: '',
   levels: [],
   team_by_level: [],
 })
@@ -2443,7 +2449,17 @@ const currentCommissionRate = computed(() => {
   if (typeof levels.value.entry_rate === 'number' && levels.value.entry_rate > 0) return levels.value.entry_rate
   return 0
 })
-const canConfigureLevels = computed(() => Boolean(dashboard.value.has_parent))
+const canConfigureLevels = computed(() => {
+  if (typeof levels.value.can_configure === 'boolean') return levels.value.can_configure
+  return Number(currentCommissionRate.value || 0) > 0
+})
+
+const levelBlockReason = computed(() => {
+  const backendReason = String(levels.value.block_reason || '').trim()
+  if (backendReason) return backendReason
+  if (Number(currentCommissionRate.value || 0) <= 0) return '自己的拿货折扣是 0.00，不能设置伙伴等级返佣'
+  return '当前账号暂不能设置伙伴等级返佣'
+})
 
 const nextUpgradeText = computed(() => {
   const dashboardUpgrade = String(dashboard.value.upgrade_condition || '').trim()
@@ -2644,11 +2660,16 @@ const normalizeRule = (level: any): LevelRule => {
     }
   }
 
+  const targetOrders = Number(condition.orders ?? condition.target_orders ?? 0)
+  const targetAmount = Number(condition.targetValue ?? condition.target_value ?? condition.daily_amount ?? 0)
+  const metric: 'orders' | 'sales' = targetOrders > 0 && targetAmount <= 0 ? 'orders' : (condition.metric === 'orders' ? 'orders' : 'sales')
+  const targetValue = metric === 'orders' ? targetOrders : targetAmount
+
   return {
     enabled: true,
-    metric: condition.metric || 'sales',
+    metric,
     period: condition.period || 'daily',
-    targetValue: Number(condition.targetValue ?? condition.target_value ?? condition.daily_amount ?? 0),
+    targetValue: Number(targetValue || 0),
     consecutiveDays: Number(condition.consecutiveDays ?? condition.consecutive_days ?? condition.days ?? 3),
   }
 }
@@ -3126,9 +3147,45 @@ const removeLevel = (id: number) => {
   refreshDecorations()
 }
 
+const validateLevelPayload = (payload: LevelsData): string => {
+  const list = payload.levels || []
+  const myRate = Number(currentCommissionRate.value || payload.my_rate || 0)
+  if (!canConfigureLevels.value || myRate <= 0) return levelBlockReason.value
+  if (list.length === 0 || list.length > 3) return '最多设置 3 个等级，且至少设置 1 个'
+
+  let entryCount = 0
+  let previousRate = 0
+  for (let index = 0; index < list.length; index += 1) {
+    const item = list[index]
+    if (!item) return '等级数据异常，请刷新后重试'
+    const rate = Number(item.rate || 0)
+    if (!String(item.name || '').trim()) return '等级名称不能为空'
+    if (rate <= 0) return '等级返佣必须大于 0'
+    if (rate >= myRate) return `等级返佣必须小于你自己的 ¥${formatMoney(myRate)} / ¥100`
+    if (index > 0 && rate <= previousRate) return '等级返佣必须从低到高递增，例如：10、15、19'
+
+    if (item.is_entry) entryCount += 1
+    if (index === 0 && !item.is_entry) return '最低档必须是入门档'
+    if (index > 0 && item.is_entry) return '只有最低档可以是入门档'
+
+    if (!item.is_entry) {
+      const rule = normalizeRule(item)
+      if (!rule.enabled) return '非入门档必须设置升级条件'
+      if (Number(rule.consecutiveDays || 0) <= 0) return '连续天数必须大于 0'
+      if (Number(rule.targetValue || 0) <= 0) return '非入门档必须设置大于 0 的销售额或订单数目标'
+    }
+
+    previousRate = rate
+  }
+
+  if (entryCount !== 1) return '必须有且只有一个入门档'
+  return ''
+}
+
 const handleLevelsSave = async (payload: LevelsData) => {
-  if (!canConfigureLevels.value) {
-    window.alert('当前账号没有上级，不能自由设置升级规则')
+  const errorMessage = validateLevelPayload(payload)
+  if (errorMessage) {
+    window.alert(errorMessage)
     return
   }
   try {
@@ -3137,9 +3194,9 @@ const handleLevelsSave = async (payload: LevelsData) => {
     levels.value = saved
     await Promise.all([loadDashboard(), loadStats(statsPeriod.value)])
     window.alert('伙伴等级返佣已保存')
-  } catch (error) {
+  } catch (error: any) {
     console.error('保存 levels 失败:', error)
-    window.alert('保存失败，请稍后重试')
+    window.alert(error?.response?.data?.message || error?.message || '保存失败，请稍后重试')
   } finally {
     savingLevels.value = false
   }
@@ -3242,7 +3299,7 @@ const handleSettle = async (partnerId: number) => {
 
 const saveCurrentLevel = async () => {
   if (!canConfigureLevels.value) {
-    window.alert('当前账号没有上级，不能自由设置升级规则')
+    window.alert(levelBlockReason.value)
     return
   }
   if (!currentEditLevel.value) return
@@ -3252,8 +3309,15 @@ const saveCurrentLevel = async () => {
     return
   }
 
-  if (Number(editorForm.value.rate || 0) < 0) {
-    window.alert('返佣金额不能小于 0')
+  const editingRate = Number(editorForm.value.rate || 0)
+  const myRate = Number(currentCommissionRate.value || 0)
+  if (editingRate <= 0) {
+    window.alert('返佣金额必须大于 0')
+    return
+  }
+
+  if (myRate <= 0 || editingRate >= myRate) {
+    window.alert(`等级返佣必须小于你自己的 ¥${formatMoney(myRate)} / ¥100`)
     return
   }
 
@@ -3300,7 +3364,8 @@ const saveCurrentLevel = async () => {
         ? null
         : {
             days: Number(nextRule.consecutiveDays || 0),
-            daily_amount: Number(nextRule.targetValue || 0),
+            daily_amount: nextRule.metric === 'sales' ? Number(nextRule.targetValue || 0) : 0,
+            orders: nextRule.metric === 'orders' ? Number(nextRule.targetValue || 0) : 0,
           },
     }
   })
@@ -3327,7 +3392,8 @@ const saveCurrentLevel = async () => {
         ? null
         : {
             days: Number(normalizeRule(item).consecutiveDays || 0),
-            daily_amount: Number(normalizeRule(item).targetValue || 0),
+            daily_amount: normalizeRule(item).metric === 'sales' ? Number(normalizeRule(item).targetValue || 0) : 0,
+            orders: normalizeRule(item).metric === 'orders' ? Number(normalizeRule(item).targetValue || 0) : 0,
           },
     })),
     team_by_level: nextTeamByLevel,

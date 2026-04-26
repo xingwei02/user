@@ -272,7 +272,7 @@ type LevelItem = {
   rate: number
   member_count: number
   is_entry: boolean
-  upgrade_condition: { days: number; daily_amount: number } | null
+  upgrade_condition: { days: number; daily_amount: number; orders?: number } | null
   style: string
   rule?: LevelRule
 }
@@ -290,6 +290,8 @@ type LevelGroup = {
 type LevelsData = {
   my_rate: number
   entry_rate: number
+  can_configure?: boolean
+  block_reason?: string
   levels: LevelItem[]
   team_by_level: LevelGroup[]
 }
@@ -600,6 +602,8 @@ const mapOrderCommissionDetail = (data: any): OrderCommissionDetailData => ({
 const mapLevels = (data: any): LevelsData => ({
   my_rate: Number(data?.my_rate ?? 0),
   entry_rate: Number(data?.entry_rate ?? 0),
+  can_configure: Boolean(data?.can_configure),
+  block_reason: data?.block_reason || '',
   levels: Array.isArray(data?.levels)
     ? data.levels.map((item: any, index: number) => ({
         id: Number(item.id ?? index + 1),
@@ -612,6 +616,7 @@ const mapLevels = (data: any): LevelsData => ({
           ? {
               days: Number(item.upgrade_condition.days ?? 0),
               daily_amount: Number(item.upgrade_condition.daily_amount ?? 0),
+              orders: Number(item.upgrade_condition.orders ?? 0),
             }
           : null,
         style: item.style || 'default',
