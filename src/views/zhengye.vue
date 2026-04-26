@@ -589,48 +589,62 @@
             <h3>🛠 升级规则设置</h3>
             <p>给团队伙伴设几个档位，他们卖得越多，自动升到更高档位，自己赚得更多。越往上越厉害、赚得越多。</p>
 
-            <div class="levels-board">
-              <div class="level-axis">→<br>越往上佣金越高</div>
+            <div v-if="!canConfigureLevels" class="levels-empty-state">
+              <div class="levels-empty-icon">🔒</div>
+              <h4>当前不可设置档位</h4>
+              <p>{{ levelBlockReason }}</p>
+            </div>
 
-              <div class="level-list">
-                <div
-                  v-for="lv in localLevels"
-                  :key="lv.id"
-                  class="level-item"
-                  :class="[getLevelTheme(lv).className, { active: editingLevelId === lv.id, 'has-actions': hoveredLevelId === lv.id || editingLevelId === lv.id, 'level-item-disabled': !canConfigureLevels }]"
-                  :style="getLevelCardStyle(lv)"
-                  @mouseenter="hoveredLevelId = lv.id"
-                  @mouseleave="hoveredLevelId = null"
-                >
-                  <div class="level-glow" :style="{ background: getLevelTheme(lv).glow }"></div>
-                  <div class="level-rank-chip" :style="getLevelChipStyle(lv)">
-                    {{ getLevelTheme(lv).label }}
-                  </div>
+            <div v-else-if="!hasLevelConfig" class="levels-empty-state">
+              <div class="levels-empty-icon">🏗️</div>
+              <h4>还没有设置档位</h4>
+              <p>设好档位后，伙伴卖得越多就会自动升级，赚得更多。</p>
+              <button class="btn btn-primary empty-add-btn" @click="insertLevel(0, 'below')">+ 加我的第一档</button>
+            </div>
 
-                  <div v-if="hoveredLevelId === lv.id || editingLevelId === lv.id" class="level-actions" @click.stop>
-                    <button class="action-chip action-chip-active" @click="openLevelEditor(lv.id)">编辑此档</button>
-                  </div>
+            <template v-else>
+              <div class="levels-board">
+                <div class="level-axis">→<br>越往上佣金越高</div>
 
-                  <div class="level-main" @click="openLevelEditor(lv.id)">
+                <div class="level-list">
+                  <div
+                    v-for="(lv, index) in localLevels"
+                    :key="lv.id"
+                    class="level-item"
+                    :class="[getLevelTheme(lv).className, { active: editingLevelId === lv.id, 'has-actions': hoveredLevelId === lv.id || editingLevelId === lv.id }]"
+                    :style="getLevelCardStyle(lv)"
+                    draggable="true"
+                    @mouseenter="hoveredLevelId = lv.id"
+                    @mouseleave="hoveredLevelId = null"
+                    @dragstart="onLevelDragStart(index)"
+                    @dragover.prevent
+                    @drop="onLevelDrop(index)"
+                  >
+                    <div class="level-glow" :style="{ background: getLevelTheme(lv).glow }"></div>
+                    <div class="level-rank-chip" :style="getLevelChipStyle(lv)">
+                      {{ getLevelTheme(lv).label }}
+                    </div>
+
+                    <div v-if="hoveredLevelId === lv.id || editingLevelId === lv.id" class="level-actions" @click.stop>
+                      <button class="action-chip" @click="insertLevel(index, 'above')">↑ 上方插入</button>
+                      <button class="action-chip action-chip-active" @click="openLevelEditor(lv.id)">编辑此档</button>
+                      <button class="action-chip" @click="insertLevel(index, 'below')">↓ 下方插入</button>
+                      <button v-if="localLevels.length > 1" class="action-chip action-chip-danger" @click="removeLevel(lv.id)">删除</button>
+                    </div>
+
+                    <div class="level-main" @click="openLevelEditor(lv.id)">
                       <div class="level-icon" :style="getLevelIconStyle(lv)">{{ lv.icon }}</div>
                       <div class="level-info">
                         <div class="level-name-row">
-                          <span class="level-name">{{ levelDisplayName(lv) }}</span>
+                          <span class="level-name">{{ lv.name }}</span>
                           <span class="level-profit">赚 ¥{{ formatMoney(lv.rate) }} / ¥100</span>
                           <span v-if="lv.member_count > 0" class="badge badge-blue">{{ lv.member_count }} 人</span>
                           <span v-if="lv.is_entry" class="badge badge-green">入门档</span>
-                          <span v-else-if="!isLevelConfigured(lv)" class="badge badge-blue-light">未配置</span>
                           <span v-else-if="lv.member_count === 0" class="badge badge-blue-light">暂无伙伴在此档</span>
                         </div>
 
                         <div class="level-desc">
-                          <template v-if="!isLevelConfigured(lv) && !lv.is_entry">
-                            这一档还未配置。点右上角「编辑此档」后，可填写档位名称、返佣金额和升级条件。
-                          </template>
-                          <template v-else-if="lv.is_entry && !isLevelConfigured(lv)">
-                            这是新人默认进入的入门档。请先填写档位名称和返佣金额。
-                          </template>
-                          <template v-else-if="lv.is_entry">
+                          <template v-if="lv.is_entry">
                             新人起点：所有新加入的伙伴默认从这里开始
                           </template>
                           <template v-else-if="normalizeRule(lv).enabled">
@@ -657,40 +671,34 @@
                       </div>
                     </div>
                   </div>
+                </div>
               </div>
-            </div>
 
-            <p class="level-tip">固定显示 3 档：最高档 / 中间档 / 入门档。不能删除、不能调位置，只能修改每一档的配置信息。</p>
-            <div class="team-total-line">你的团队总共 {{ levelPartnerCount }} 人 · 当前已配置 {{ configuredLevelCount }} / 3 档</div>
+              <p class="level-tip">点任意一档可编辑；悬停显示「上方插入 / 下方插入 / 编辑」</p>
+              <div class="team-total-line">你的团队总共 {{ levelPartnerCount }} 人 · 已有 {{ localLevels.length }} 档</div>
+            </template>
 
             <div v-if="currentEditLevel" class="editor-panel">
               <h4>设置这一档</h4>
 
               <div class="editor-section">
                 <label>1. 给这个档位起个名字</label>
-                <input v-model="editorForm.name" :disabled="!canConfigureLevels" type="text" class="editor-input" :placeholder="currentEditLevel?.is_entry ? '比如 入门档 / 新手档' : '比如 铜牌 / 银牌 / 金牌'">
+                <input v-model="editorForm.name" type="text" class="editor-input" placeholder="比如 铜牌 / 银牌 / 金牌">
               </div>
 
               <div class="editor-section">
                 <label>2. 在这个档位，伙伴每卖 ¥100 能赚多少钱？</label>
                 <div class="money-input-wrap">
                   <span class="prefix">¥</span>
-                  <input v-model.number="editorForm.rate" :disabled="!canConfigureLevels" type="number" min="0" step="0.01" class="editor-input money-input">
+                  <input v-model.number="editorForm.rate" type="number" min="0" step="0.01" class="editor-input money-input">
                   <span class="suffix-right">/ ¥100</span>
                 </div>
               </div>
 
-              <div v-if="currentEditLevel?.is_entry" class="entry-check">
+              <div class="entry-check">
                 <label>
-                  <input :checked="true" type="checkbox" disabled>
+                  <input v-model="editorForm.isEntry" type="checkbox">
                   设为入门档（新人默认从这里开始）
-                </label>
-              </div>
-
-              <div v-else class="entry-check">
-                <label>
-                  <input :checked="false" type="checkbox" disabled>
-                  当前编辑的是{{ currentEditLevel?.slot === 'top' ? '最高档' : '中间档' }}，不是入门档
                 </label>
               </div>
 
@@ -704,16 +712,16 @@
                 <div class="editor-section">
                   <label>按什么考核？</label>
                   <div class="option-row">
-                    <button type="button" class="option-chip" :disabled="!canConfigureLevels" :class="{ active: editorForm.rule.metric === 'orders' }" @click="editorForm.rule.metric = 'orders'">按订单数</button>
-                    <button type="button" class="option-chip" :disabled="!canConfigureLevels" :class="{ active: editorForm.rule.metric === 'sales' }" @click="editorForm.rule.metric = 'sales'">按销售额（¥）</button>
+                    <button type="button" class="option-chip" :class="{ active: editorForm.rule.metric === 'orders' }" @click="editorForm.rule.metric = 'orders'">按订单数</button>
+                    <button type="button" class="option-chip" :class="{ active: editorForm.rule.metric === 'sales' }" @click="editorForm.rule.metric = 'sales'">按销售额（¥）</button>
                   </div>
                 </div>
 
                 <div class="editor-section">
                   <label>考核周期</label>
                   <div class="option-row">
-                    <button type="button" class="option-chip" :disabled="!canConfigureLevels" :class="{ active: editorForm.rule.period === 'daily' }" @click="editorForm.rule.period = 'daily'">每天</button>
-                    <button type="button" class="option-chip" :disabled="!canConfigureLevels" :class="{ active: editorForm.rule.period === 'weekly' }" @click="editorForm.rule.period = 'weekly'">每周</button>
+                    <button type="button" class="option-chip" :class="{ active: editorForm.rule.period === 'daily' }" @click="editorForm.rule.period = 'daily'">每天</button>
+                    <button type="button" class="option-chip" :class="{ active: editorForm.rule.period === 'weekly' }" @click="editorForm.rule.period = 'weekly'">每周</button>
                   </div>
                 </div>
 
@@ -721,7 +729,7 @@
                   <label>{{ editorForm.rule.metric === 'orders' ? (editorForm.rule.period === 'daily' ? '每天要卖多少单？' : '每周要卖多少单？') : (editorForm.rule.period === 'daily' ? '每天要卖多少钱？' : '每周要卖多少钱？') }}</label>
                   <div class="money-input-wrap">
                     <span v-if="editorForm.rule.metric === 'sales'" class="prefix">¥</span>
-                    <input v-model.number="editorForm.rule.targetValue" :disabled="!canConfigureLevels" type="number" min="0" step="0.01" class="editor-input money-input">
+                    <input v-model.number="editorForm.rule.targetValue" type="number" min="0" step="0.01" class="editor-input money-input">
                     <span class="suffix-right">{{ editorForm.rule.metric === 'orders' ? (editorForm.rule.period === 'daily' ? '单 / 天' : '单 / 周') : (editorForm.rule.period === 'daily' ? '元 / 天' : '元 / 周') }}</span>
                   </div>
                 </div>
@@ -729,24 +737,18 @@
                 <div class="editor-section">
                   <label>连续坚持几天？</label>
                   <div class="money-input-wrap">
-                    <input v-model.number="editorForm.rule.consecutiveDays" :disabled="!canConfigureLevels" type="number" min="1" step="1" class="editor-input money-input">
+                    <input v-model.number="editorForm.rule.consecutiveDays" type="number" min="1" step="1" class="editor-input money-input">
                     <span class="suffix-right">天</span>
                   </div>
                 </div>
               </div>
 
               <div class="editor-footer">
-                <div class="text-sm text-gray">
-                  <template v-if="currentEditLevel?.is_entry">
-                    入门档固定保留，不能删除，且新人默认从这里开始。
-                  </template>
-                  <template v-else>
-                    如需停用这一档，可把“档位名称清空”且“返佣金额设为 0”后保存。
-                  </template>
-                </div>
+                <button v-if="currentEditLevel && localLevels.length > 1" type="button" class="btn btn-danger-outline" @click="removeLevel(currentEditLevel.id)">删除这一级</button>
+                <div v-else></div>
                 <div class="editor-footer-right">
                   <button type="button" class="btn btn-default" @click="cancelEditLevel">取消</button>
-                  <button type="button" class="btn btn-primary" :disabled="savingLevels || !canConfigureLevels" @click="saveCurrentLevel">{{ savingLevels ? '保存中...' : '保存这一档' }}</button>
+                  <button type="button" class="btn btn-primary" @click="saveCurrentLevel">{{ savingLevels ? '保存中...' : '保存这一档' }}</button>
                 </div>
               </div>
             </div>
@@ -1426,7 +1428,7 @@
                       </div>
                       <div class="flex items-center gap-5 mt-5">
                         <select v-model.number="partnerRateDrafts[item.id]" style="width: 120px; padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 12px;">
-                          <option v-for="lv in configuredSelectableLevels" :key="lv.id" :value="lv.rate">{{ levelDisplayName(lv) }} ({{ lv.rate }}%)</option>
+                          <option v-for="lv in localLevels" :key="lv.id" :value="lv.rate">{{ lv.name }} ({{ lv.rate }}%)</option>
                         </select>
                         <button class="btn btn-default btn-sm" :disabled="savingPartnerRateId === item.id" @click="savePartnerRate(item.id)">{{ savingPartnerRateId === item.id ? '保存中...' : '保存' }}</button>
                       </div>
@@ -2101,7 +2103,6 @@ type StatsPeriod = '7d' | '30d' | '180d'
 
 type RuleMetric = 'orders' | 'sales'
 type RulePeriod = 'daily' | 'weekly'
-type LevelSlot = 'top' | 'middle' | 'entry'
 
 type LevelUpgradeCondition = {
   days: number
@@ -2119,7 +2120,6 @@ type LevelRule = {
 
 type LevelItem = {
   id: number
-  slot: LevelSlot
   name: string
   icon: string
   rate: number
@@ -2275,6 +2275,7 @@ const selectedLevelTab = ref<'all' | number>('all')
 const editingLevelId = ref<number | null>(null)
 const hoveredLevelId = ref<number | null>(null)
 const localLevels = ref<LevelItem[]>([])
+const draggedLevelIndex = ref<number | null>(null)
 const editorForm = ref<EditorForm>({
   name: '',
   rate: 0,
@@ -2318,12 +2319,8 @@ const settlementKeyword = ref('')
 const orderKeyword = ref('')
 const orderStatus = ref('全部')
 const orderSource = ref('全部')
-
-const levelSlotMeta: Record<LevelSlot, { label: string; icon: string; style: string }> = {
-  top: { label: '最高档', icon: '💎', style: 'yellow' },
-  middle: { label: '中间档', icon: '🏅', style: 'gray' },
-  entry: { label: '入门档', icon: '🥉', style: 'active' },
-}
+const iconByIndex = ['🥉', '🏅', '💎', '🏆', '🎖']
+const styleByIndex = ['active', 'gray', 'yellow', 'blue', 'purple']
 
 const bronzeTheme: LevelTheme = {
   className: 'theme-bronze',
@@ -2524,8 +2521,12 @@ const normalizedDiscountRate = computed(() => {
   if (Number.isNaN(raw)) return 0
   return Math.min(100, Math.max(0, raw))
 })
-const myRemainingRate = computed(() => Math.max(0, Number(currentCommissionRate.value || 0) - Number(normalizedDiscountRate.value || 0)))
+const myRemainingRate = computed(() => {
+  const baseRate = Number(currentCommissionRate.value ?? 0)
+  return Math.max(0, baseRate - normalizedDiscountRate.value)
+})
 const currentEditLevel = computed(() => localLevels.value.find(item => item.id === editingLevelId.value) || null)
+const hasLevelConfig = computed(() => localLevels.value.length > 0)
 const allMembers = computed(() =>
   (levels.value?.team_by_level || []).flatMap(group =>
     group.members.map(member => ({
@@ -2675,53 +2676,13 @@ const normalizeRule = (level: any): LevelRule => {
   }
 }
 
-const createFixedLevel = (slot: LevelSlot, source?: any): LevelItem => {
-  const meta = levelSlotMeta[slot]
-  return {
-    id: Number(source?.id ?? Date.now() + (slot === 'top' ? 1 : slot === 'middle' ? 2 : 3)),
-    slot,
-    name: String(source?.name || ''),
-    icon: source?.icon || meta.icon,
-    rate: Number(source?.rate ?? 0),
-    member_count: Number(source?.member_count ?? 0),
-    is_entry: slot === 'entry',
-    upgrade_condition: slot === 'entry' ? null : (source?.upgrade_condition || null),
-    style: meta.style,
-    rule: slot === 'entry'
-      ? {
-          enabled: false,
-          metric: 'sales',
-          period: 'daily',
-          targetValue: 0,
-          consecutiveDays: 0,
-        }
-      : normalizeRule(source),
-  }
-}
-
-const isLevelConfigured = (level: LevelItem) => Number(level.rate || 0) > 0 && String(level.name || '').trim().length > 0
-
-const levelDisplayName = (level: LevelItem) => String(level.name || '').trim() || levelSlotMeta[level.slot].label
-
-const configuredLevelCount = computed(() => localLevels.value.filter(item => isLevelConfigured(item)).length)
-
-const configuredSelectableLevels = computed(() =>
-  localLevels.value.filter(item => isLevelConfigured(item)).sort((a, b) => Number(a.rate || 0) - Number(b.rate || 0))
-)
-
 const normalizeLevels = (list: any[] = []) =>
-  {
-    const ordered = [...list].sort((a, b) => Number(a.rate ?? 0) - Number(b.rate ?? 0))
-    const entry = ordered.find(item => Boolean(item?.is_entry))
-    const others = ordered.filter(item => !item?.is_entry)
-    const middle = others[0]
-    const top = others[1]
-    return [
-      createFixedLevel('top', top),
-      createFixedLevel('middle', middle),
-      createFixedLevel('entry', entry),
-    ]
-  }
+  list.map((item, index, arr) => ({
+    ...item,
+    icon: item.icon || iconByIndex[Math.min(arr.length - 1 - index, iconByIndex.length - 1)] || '🏅',
+    style: item.style || styleByIndex[Math.min(arr.length - 1 - index, styleByIndex.length - 1)] || 'gray',
+    rule: normalizeRule(item),
+  }))
 
 watch(
   () => levels.value,
@@ -3105,7 +3066,7 @@ const syncEditorForm = (lv: LevelItem) => {
   editorForm.value = {
     name: lv.name,
     rate: lv.rate,
-    isEntry: lv.slot === 'entry',
+    isEntry: lv.is_entry,
     rule: { ...normalizeRule(lv) },
   }
 }
@@ -3126,13 +3087,66 @@ const cancelEditLevel = () => {
   hoveredLevelId.value = null
 }
 
+const createBlankLevel = (): LevelItem => ({
+  id: Date.now(),
+  name: '新档位',
+  icon: '🏅',
+  rate: 0,
+  member_count: 0,
+  is_entry: false,
+  upgrade_condition: null,
+  style: 'gray',
+  rule: {
+    enabled: true,
+    metric: 'sales',
+    period: 'daily',
+    targetValue: 0,
+    consecutiveDays: 3,
+  },
+})
+
 const refreshDecorations = () => {
-  localLevels.value = localLevels.value.map((item) => ({
+  localLevels.value = localLevels.value.map((item, index, arr) => ({
     ...item,
-    icon: levelSlotMeta[item.slot].icon,
-    style: levelSlotMeta[item.slot].style,
-    is_entry: item.slot === 'entry',
+    icon: iconByIndex[Math.min(arr.length - 1 - index, iconByIndex.length - 1)] || item.icon,
+    style: styleByIndex[Math.min(arr.length - 1 - index, styleByIndex.length - 1)] || item.style,
   }))
+}
+
+const insertLevel = (index: number, position: 'above' | 'below') => {
+  if (localLevels.value.length >= 3) {
+    window.alert('最多只能设置 3 个档位')
+    return
+  }
+  const target = position === 'above' ? index : index + 1
+  localLevels.value.splice(target, 0, createBlankLevel())
+  refreshDecorations()
+  const insertedLevel = localLevels.value[target]
+  if (insertedLevel) beginEditLevel(insertedLevel.id)
+}
+
+const removeLevel = (id: number) => {
+  const idx = localLevels.value.findIndex(item => item.id === id)
+  if (idx < 0 || localLevels.value.length <= 1) return
+  if (hoveredLevelId.value === id) hoveredLevelId.value = null
+  localLevels.value.splice(idx, 1)
+
+  if (!localLevels.value.some(item => item.is_entry)) {
+    const last = localLevels.value[localLevels.value.length - 1]
+    if (last) {
+      last.is_entry = true
+      last.rule = {
+        ...normalizeRule(last),
+        enabled: false,
+      }
+      last.upgrade_condition = null
+    }
+  }
+
+  refreshDecorations()
+  const fallbackLevel = localLevels.value[Math.max(0, idx - 1)]
+  if (fallbackLevel) beginEditLevel(fallbackLevel.id)
+  refreshDecorations()
 }
 
 const validateLevelPayload = (payload: LevelsData): string => {
@@ -3188,6 +3202,25 @@ const handleLevelsSave = async (payload: LevelsData) => {
   } finally {
     savingLevels.value = false
   }
+}
+
+const onLevelDragStart = (index: number) => {
+  draggedLevelIndex.value = index
+}
+
+const onLevelDrop = (index: number) => {
+  if (draggedLevelIndex.value === null || draggedLevelIndex.value === index) return
+
+  const movedItem = localLevels.value.splice(draggedLevelIndex.value, 1)[0]
+  if (!movedItem) {
+    draggedLevelIndex.value = null
+    return
+  }
+
+  localLevels.value.splice(index, 0, movedItem)
+  draggedLevelIndex.value = null
+  refreshDecorations()
+  beginEditLevel(movedItem.id)
 }
 
 const saveContactInfo = async () => {
@@ -3273,51 +3306,24 @@ const saveCurrentLevel = async () => {
   }
   if (!currentEditLevel.value) return
 
-  const isEntrySlot = currentEditLevel.value.slot === 'entry'
-  const trimmedName = String(editorForm.value.name || '').trim()
-  const editingRate = Number(editorForm.value.rate || 0)
-  const myRate = Number(currentCommissionRate.value || 0)
-
-  if (!isEntrySlot && !trimmedName && editingRate <= 0) {
-    localLevels.value = localLevels.value.map(item => item.id !== currentEditLevel.value?.id
-      ? item
-      : {
-          ...item,
-          name: '',
-          rate: 0,
-          member_count: item.member_count || 0,
-          rule: {
-            enabled: false,
-            metric: 'sales',
-            period: 'daily',
-            targetValue: 0,
-            consecutiveDays: 0,
-          },
-          upgrade_condition: null,
-        })
-    refreshDecorations()
-  } else {
-    if (!trimmedName) {
-      window.alert('请先填写档位名称')
-      return
-    }
-    if (editingRate <= 0) {
-      window.alert('返佣金额必须大于 0')
-      return
-    }
+  if (!editorForm.value.name?.trim()) {
+    window.alert('请先填写档位名称')
+    return
   }
 
-  if (isEntrySlot && editingRate <= 0) {
+  const editingRate = Number(editorForm.value.rate || 0)
+  const myRate = Number(currentCommissionRate.value || 0)
+  if (editingRate <= 0) {
     window.alert('返佣金额必须大于 0')
     return
   }
 
-  if (editingRate > 0 && (myRate <= 0 || editingRate >= myRate)) {
+  if (myRate <= 0 || editingRate >= myRate) {
     window.alert(`等级返佣必须小于你自己的 ¥${formatMoney(myRate)} / ¥100`)
     return
   }
 
-  if (!isEntrySlot && editingRate > 0) {
+  if (!editorForm.value.isEntry) {
     const targetValue = Number(editorForm.value.rule.targetValue || 0)
     const consecutiveDays = Number(editorForm.value.rule.consecutiveDays || 0)
 
@@ -3332,41 +3338,41 @@ const saveCurrentLevel = async () => {
     }
   }
 
-  if (trimmedName || editingRate > 0) {
-    localLevels.value = localLevels.value.map(item => {
-      if (item.id !== currentEditLevel.value?.id) return item
+  localLevels.value = localLevels.value.map(item => {
+    if (item.id !== currentEditLevel.value?.id) {
+      return editorForm.value.isEntry ? { ...item, is_entry: false } : item
+    }
 
-      const nextRule: LevelRule = isEntrySlot
-        ? {
-            enabled: false,
-            metric: 'sales',
-            period: 'daily',
-            targetValue: 0,
-            consecutiveDays: 0,
-          }
+    const nextRule: LevelRule = editorForm.value.isEntry
+      ? {
+          enabled: false,
+          metric: 'sales',
+          period: 'daily',
+          targetValue: 0,
+          consecutiveDays: 0,
+        }
+      : {
+          ...editorForm.value.rule,
+          enabled: true,
+        }
+
+    return {
+      ...item,
+      name: editorForm.value.name || '未命名档位',
+      rate: Number(editorForm.value.rate || 0),
+      is_entry: editorForm.value.isEntry,
+      rule: nextRule,
+      upgrade_condition: editorForm.value.isEntry
+        ? null
         : {
-            ...editorForm.value.rule,
-            enabled: true,
-          }
-
-      return {
-        ...item,
-        name: trimmedName,
-        rate: Number(editorForm.value.rate || 0),
-        is_entry: isEntrySlot,
-        rule: nextRule,
-        upgrade_condition: isEntrySlot
-          ? null
-          : {
-              days: Number(nextRule.consecutiveDays || 0),
-              daily_amount: nextRule.metric === 'sales' ? Number(nextRule.targetValue || 0) : 0,
-              orders: nextRule.metric === 'orders' ? Number(nextRule.targetValue || 0) : 0,
-              metric_type: nextRule.metric || 'sales',
-              period_type: nextRule.period || 'daily',
-            },
-      }
-    })
-  }
+            days: Number(nextRule.consecutiveDays || 0),
+            daily_amount: nextRule.metric === 'sales' ? Number(nextRule.targetValue || 0) : 0,
+            orders: nextRule.metric === 'orders' ? Number(nextRule.targetValue || 0) : 0,
+            metric_type: nextRule.metric || 'sales',
+            period_type: nextRule.period || 'daily',
+          },
+    }
+  })
 
   refreshDecorations()
 
@@ -3375,30 +3381,19 @@ const saveCurrentLevel = async () => {
     if (!match) return group
     return {
       ...group,
-      level_name: levelDisplayName(match),
+      level_name: match.name,
       rate: match.rate,
     }
   })
 
-  const entryLevel = localLevels.value.find(item => item.slot === 'entry')
-  const middleLevel = localLevels.value.find(item => item.slot === 'middle')
-  const topLevel = localLevels.value.find(item => item.slot === 'top')
-
-  const payloadLevels = [entryLevel, middleLevel, topLevel]
-    .filter((item): item is LevelItem => Boolean(item))
-    .filter(item => item.slot === 'entry' || isLevelConfigured(item))
-    .map(item => ({
+  await handleLevelsSave({
+    ...levels.value,
+    entry_rate: localLevels.value.find(item => item.is_entry)?.rate || levels.value?.entry_rate || 0,
+    levels: localLevels.value.map(item => ({
       ...item,
-      is_entry: item.slot === 'entry',
       rule: { ...normalizeRule(item) },
-      upgrade_condition: item.slot === 'entry'
-      ? {
-          days: 0,
-          daily_amount: 0,
-          orders: 0,
-          metric_type: 'sales',
-          period_type: 'daily',
-        }
+      upgrade_condition: item.is_entry
+        ? null
         : {
             days: Number(normalizeRule(item).consecutiveDays || 0),
             daily_amount: normalizeRule(item).metric === 'sales' ? Number(normalizeRule(item).targetValue || 0) : 0,
@@ -3406,12 +3401,7 @@ const saveCurrentLevel = async () => {
             metric_type: normalizeRule(item).metric || 'sales',
             period_type: normalizeRule(item).period || 'daily',
           },
-    }))
-
-  await handleLevelsSave({
-    ...levels.value,
-    entry_rate: Number(entryLevel?.rate || 0),
-    levels: payloadLevels,
+    })),
     team_by_level: nextTeamByLevel,
   })
 }
