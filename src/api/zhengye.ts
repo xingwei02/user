@@ -265,8 +265,10 @@ type LevelRule = {
   targetValue: number
   consecutiveDays: number
 }
+type LevelSlot = 'top' | 'middle' | 'entry'
 type LevelItem = {
   id: number
+  slot: LevelSlot
   name: string
   icon: string
   rate: number
@@ -605,33 +607,45 @@ const mapLevels = (data: any): LevelsData => ({
   can_configure: Boolean(data?.can_configure),
   block_reason: data?.block_reason || '',
   levels: Array.isArray(data?.levels)
-    ? data.levels.map((item: any, index: number) => ({
-        id: Number(item.id ?? index + 1),
-        name: item.name || `等级${index + 1}`,
-        icon: item.icon || '🏅',
-        rate: Number(item.rate ?? 0),
-        member_count: Number(item.member_count ?? 0),
-        is_entry: Boolean(item.is_entry),
-        upgrade_condition: item.upgrade_condition
-          ? {
-              days: Number(item.upgrade_condition.days ?? 0),
-              daily_amount: Number(item.upgrade_condition.daily_amount ?? 0),
-              orders: Number(item.upgrade_condition.orders ?? 0),
-              metric_type: item.upgrade_condition.metric_type || '',
-              period_type: item.upgrade_condition.period_type || '',
-            }
-          : null,
-        style: item.style || 'default',
-        rule: item.rule
-          ? {
-              enabled: Boolean(item.rule.enabled),
-              metric: item.rule.metric === 'sales' ? 'sales' : 'orders',
-              period: item.rule.period === 'weekly' ? 'weekly' : 'daily',
-              targetValue: Number(item.rule.targetValue ?? 0),
-              consecutiveDays: Number(item.rule.consecutiveDays ?? 0),
-            }
-          : undefined,
-      }))
+    ? data.levels.map((item: any, index: number) => {
+        const rawSlot = item?.slot
+        const slot: LevelSlot = rawSlot === 'top' || rawSlot === 'middle' || rawSlot === 'entry'
+          ? rawSlot
+          : item?.is_entry
+            ? 'entry'
+            : index === 0
+              ? 'top'
+              : index === 1
+                ? 'middle'
+                : 'entry'
+
+        return {
+          id: Number(item.id ?? index + 1),
+          slot,
+          name: item.name || `等级${index + 1}`,
+          icon: item.icon || '🏅',
+          rate: Number(item.rate ?? 0),
+          member_count: Number(item.member_count ?? 0),
+          is_entry: Boolean(item.is_entry),
+          upgrade_condition: item.upgrade_condition
+            ? {
+                days: Number(item.upgrade_condition.days ?? 0),
+                daily_amount: Number(item.upgrade_condition.daily_amount ?? 0),
+                orders: Number(item.upgrade_condition.orders ?? 0),
+              }
+            : null,
+          style: item.style || 'default',
+          rule: item.rule
+            ? {
+                enabled: Boolean(item.rule.enabled),
+                metric: item.rule.metric === 'sales' ? 'sales' : 'orders',
+                period: item.rule.period === 'weekly' ? 'weekly' : 'daily',
+                targetValue: Number(item.rule.targetValue ?? 0),
+                consecutiveDays: Number(item.rule.consecutiveDays ?? 0),
+              }
+            : undefined,
+        }
+      })
     : [],
   team_by_level: Array.isArray(data?.team_by_level)
     ? data.team_by_level.map((group: any) => ({
