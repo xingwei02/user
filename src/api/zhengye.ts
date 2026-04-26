@@ -617,6 +617,8 @@ const mapLevels = (data: any): LevelsData => ({
               days: Number(item.upgrade_condition.days ?? 0),
               daily_amount: Number(item.upgrade_condition.daily_amount ?? 0),
               orders: Number(item.upgrade_condition.orders ?? 0),
+              metric_type: item.upgrade_condition.metric_type || '',
+              period_type: item.upgrade_condition.period_type || '',
             }
           : null,
         style: item.style || 'default',

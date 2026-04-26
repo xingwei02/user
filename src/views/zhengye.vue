@@ -3162,7 +3162,7 @@ const validateLevelPayload = (payload: LevelsData): string => {
     if (!String(item.name || '').trim()) return '等级名称不能为空'
     if (rate <= 0) return '等级返佣必须大于 0'
     if (rate >= myRate) return `等级返佣必须小于你自己的 ¥${formatMoney(myRate)} / ¥100`
-    if (index > 0 && rate <= previousRate) return '等级返佣必须从低到高递增，例如：10、15、19'
+    if (index > 0 && rate <= previousRate) return `第${index + 1}档必须大于第${index}档，档位要一档比一档高，例如：10、15、19`
 
     if (item.is_entry) entryCount += 1
     if (index === 0 && !item.is_entry) return '最低档必须是入门档'
