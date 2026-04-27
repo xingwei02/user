@@ -788,7 +788,7 @@ export const zhengyeAPI = {
     mapBalanceLogs(await unwrap(userApi.get('/affiliate/balance-logs', { params }))),
   getTransferableCommissions: async (params?: { page?: number; page_size?: number }): Promise<TransferableCommissionData> =>
     mapTransferableCommissions(await unwrap(userApi.get('/affiliate/transferable-commissions', { params }))),
-  transferCommissionToBalance: async (data: { commission_ids: number[]; amount: number; verify_code?: string }): Promise<Record<string, unknown>> =>
+  transferCommissionToBalance: async (data: { amount: number; verify_code?: string }): Promise<Record<string, unknown>> =>
     unwrap(userApi.post('/affiliate/transfer', data)),
   getWithdrawSettings: async (): Promise<WithdrawSettingsData> =>
     mapWithdrawSettings(await unwrap(userApi.get('/affiliate/withdraw-settings'))),

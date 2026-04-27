@@ -1106,64 +1106,39 @@
               <div class="card" data-mine-section="transfer-box">
                 <h3>佣金转钱包余额</h3>
                 <div class="card-header" style="padding:0 0 10px;border:none;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                  <div class="text-sm text-gray">选择“可转余额”的佣金后批量转入余额。</div>
+                  <div class="text-sm text-gray">输入金额将自动从最早期的佣金中扣除并转入余额。</div>
                   <button class="btn btn-default btn-sm" :disabled="transferringBalance" @click="loadBalanceData">刷新佣金</button>
                 </div>
-                <div class="detail-toolbar mb-10">
-                  <div class="text-sm text-gray">已选 {{ selectedTransferCommissionIDs.length }} 笔，合计 <span class="green">¥{{ selectedTransferCommissionAmount }}</span></div>
-                  <div class="flex gap-10">
-                    <button class="btn btn-default btn-sm" :disabled="!transferableCommissions.items.length || transferringBalance" @click="toggleSelectAllTransferable(true)">全选</button>
-                    <button class="btn btn-default btn-sm" :disabled="!transferableCommissions.items.length || transferringBalance" @click="toggleSelectAllTransferable(false)">反选</button>
-                  </div>
+                <div class="form-item">
+                  <label>可转佣金总额</label>
+                  <div class="value green" style="font-size: 24px; font-weight: 600;">¥{{ transferableCommissions.totalCommission || '0.00' }}</div>
+                  <p class="form-tip">当前共有 {{ transferableCommissions.items.length }} 笔可转佣金</p>
                 </div>
-                <div v-if="transferableCommissions.items.length" class="table-wrap table-wrap--compact mb-15">
-                  <table class="detail-table detail-table--settlement">
-                    <thead>
-                      <tr>
-                        <th style="width:56px;">选择</th>
-                        <th>订单号</th>
-                        <th>商品</th>
-                        <th>佣金</th>
-                        <th>可转时间</th>
-                        <th>状态</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="item in transferableCommissions.items" :key="`transferable-${item.id}`">
-                        <td>
-                          <input
-                            type="checkbox"
-                            :checked="selectedTransferCommissionIDs.includes(item.id)"
-                            :disabled="!item.can_transfer || transferringBalance"
-                            @change="toggleTransferCommission(item.id)"
-                          >
-                        </td>
-                        <td>
-                          <div class="table-primary-text">{{ item.order_no || '-' }}</div>
-                          <div class="text-sm text-gray">佣金ID：{{ item.id }}</div>
-                        </td>
-                        <td>{{ item.product_name || '-' }}</td>
-                        <td class="green table-amount">¥{{ item.commission_amount }}</td>
-                        <td class="table-time">{{ item.available_at || item.created_at || '-' }}</td>
-                        <td><span class="tag" :class="item.can_transfer ? 'green' : 'orange'">{{ item.can_transfer ? '可转余额' : formatTransferStatus(item.status) }}</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div v-else class="text-sm text-gray mb-15">暂无可转余额佣金</div>
                 <div class="form-item">
                   <label>转入金额</label>
-                  <input :value="selectedTransferCommissionAmount" type="text" disabled>
+                  <div class="money-input-wrap">
+                    <span class="prefix">¥</span>
+                    <input 
+                      v-model.number="transferAmountInput" 
+                      type="number" 
+                      min="0" 
+                      step="0.01" 
+                      class="editor-input money-input" 
+                      placeholder="请输入要转入的金额"
+                      :disabled="transferringBalance"
+                    >
+                  </div>
+                  <p class="form-tip">金额不能超过可用佣金总额 ¥{{ transferableCommissions.totalCommission || '0.00' }}</p>
                 </div>
                 <div class="form-item">
-                  <label>邮箱验证码（如后端校验开启）</label>
+                  <label>邮箱验证码（金额≥10元时需要）</label>
                   <div class="inline-action-field">
                     <input v-model="transferForm.verify_code" type="text" placeholder="输入验证码">
                     <button type="button" class="btn btn-default btn-sm inline-action-btn" @click="mockSendVerifyCode('transfer')">发送验证码</button>
                   </div>
                 </div>
                 <div class="text-sm text-gray mb-10">说明：已转余额的佣金后续退款不自动回滚，按人工处理；未转余额佣金仍由后端退款逻辑处理。</div>
-                <button class="btn btn-primary btn-block" :disabled="transferringBalance || !selectedTransferCommissionIDs.length" @click="handleTransferToBalance">{{ transferringBalance ? '转入中...' : `佣金转余额（${selectedTransferCommissionIDs.length}笔）` }}</button>
+                <button class="btn btn-primary btn-block" :disabled="transferringBalance || transferAmountInput <= 0 || transferAmountInput > Number(transferableCommissions.totalCommission || 0)" @click="handleTransferToBalance">{{ transferringBalance ? '转入中...' : '佣金转余额' }}</button>
               </div>
 
               <div class="card">
@@ -3064,33 +3039,35 @@ const toggleSelectAllTransferable = (checked: boolean) => {
   selectedTransferCommissionIDs.value = allIds.filter((id: number) => !selectedTransferCommissionIDs.value.includes(id))
 }
 
+const transferAmountInput = ref<number>(0)
+
 const handleTransferToBalance = async () => {
-  const commissionIDs = selectedTransferCommissionIDs.value.slice()
-  if (!commissionIDs.length) {
-    window.alert('请先勾选要转余额的佣金记录')
+  const amount = Number(transferAmountInput.value)
+  if (!amount || amount <= 0) {
+    window.alert('请输入要转入余额的金额')
     return
   }
 
-  const amount = Number(selectedTransferCommissionAmount.value)
-  if (!amount || amount <= 0) {
-    window.alert('当前勾选佣金金额无效')
+  // 验证金额不能超过可用佣金
+  const availableAmount = Number(myBalance.value?.balance || 0)
+  if (amount > availableAmount) {
+    window.alert('输入金额超过可用佣金余额')
     return
   }
 
   try {
     transferringBalance.value = true
     await zhengyeAPI.transferCommissionToBalance({
-      commission_ids: commissionIDs,
       amount,
       verify_code: transferForm.value.verify_code || undefined,
     })
     window.alert('佣金已提交转余额')
     await loadBalanceData()
-    selectedTransferCommissionIDs.value = []
+    transferAmountInput.value = 0
     transferForm.value = { verify_code: '' }
   } catch (error) {
     console.error('佣金转余额失败:', error)
-    window.alert('佣金转余额失败，请检查勾选记录、金额和验证码后重试')
+    window.alert('佣金转余额失败，请检查金额和验证码后重试')
   } finally {
     transferringBalance.value = false
   }
