@@ -796,4 +796,8 @@ export const zhengyeAPI = {
     mapWithdrawRequests(await unwrap(userApi.get('/affiliate/withdraw-requests', { params }))),
   applyWithdraw: async (data: { amount: number; alipay_account: string; real_name: string; verify_code: string }): Promise<Record<string, unknown>> =>
     unwrap(userApi.post('/affiliate/withdraw', data)),
+
+  /** 发送邮箱验证码（佣金转余额 / 提现申请） */
+  sendVerifyCode: async (purpose: 'commission_transfer' | 'withdraw', email: string): Promise<Record<string, unknown>> =>
+    unwrap(userApi.post('/auth/send-verify-code', { email, purpose })),
 }

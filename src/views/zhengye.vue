@@ -1796,6 +1796,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { zhengyeAPI } from '../api/zhengye'
+import { useUserAuthStore } from '../stores/userAuth'
 
 type DashboardData = {
   opened?: boolean
@@ -3117,9 +3118,26 @@ const scrollToMineSection = (section: string) => {
   }
 }
 
-const mockSendVerifyCode = (scene: 'transfer' | 'withdraw') => {
+const userAuthStore = useUserAuthStore()
+
+const mockSendVerifyCode = async (scene: 'transfer' | 'withdraw') => {
   const label = scene === 'transfer' ? '佣金转余额' : '提现申请'
-  window.alert(`${label}验证码发送按钮仅做前端样式占位，当前未接后端发送逻辑。`)
+  const userEmail = userAuthStore.user?.email
+  
+  if (!userEmail) {
+    window.alert('无法获取用户邮箱，请重新登录')
+    return
+  }
+
+  const purpose = scene === 'transfer' ? 'commission_transfer' : 'withdraw'
+  
+  try {
+    await zhengyeAPI.sendVerifyCode(purpose, userEmail)
+    window.alert(`${label}验证码已发送到 ${userEmail}`)
+  } catch (error) {
+    console.error('发送验证码失败:', error)
+    window.alert(`${label}验证码发送失败，请稍后重试`)
+  }
 }
 
 const handleApplyWithdraw = async () => {
