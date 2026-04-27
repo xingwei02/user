@@ -2779,33 +2779,6 @@ const validateFixedLevels = (list: LevelItem[]): string => {
   return ''
 }
 
-watch(
-  () => levels.value,
-  value => {
-    localLevels.value = normalizeLevels(value?.levels || [])
-    if (!editingLevelId.value || !localLevels.value.some(item => item.id === editingLevelId.value)) {
-      const entryLevel = localLevels.value.find(item => item.slot === 'entry') || localLevels.value[0]
-      if (entryLevel) beginEditLevel(entryLevel.id)
-    }
-  },
-  { immediate: true, deep: true }
-)
-
-watch(
-  () => settleDate.value,
-  () => {
-    partnerDetailMap.value = {}
-    settlementDetailMap.value = {}
-  }
-)
-
-watch(
-  () => settlementKeyword.value,
-  () => {
-    settlementDetailMap.value = {}
-  }
-)
-
 const loadDashboard = async () => {
   try {
     dashboard.value = await zhengyeAPI.getDashboard()
@@ -3181,6 +3154,33 @@ const cancelEditLevel = () => {
   editingLevelId.value = null
   hoveredLevelId.value = null
 }
+
+watch(
+  () => levels.value,
+  value => {
+    localLevels.value = normalizeLevels(value?.levels || [])
+    if (!editingLevelId.value || !localLevels.value.some(item => item.id === editingLevelId.value)) {
+      const entryLevel = localLevels.value.find(item => item.slot === 'entry') || localLevels.value[0]
+      if (entryLevel) beginEditLevel(entryLevel.id)
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+watch(
+  () => settleDate.value,
+  () => {
+    partnerDetailMap.value = {}
+    settlementDetailMap.value = {}
+  }
+)
+
+watch(
+  () => settlementKeyword.value,
+  () => {
+    settlementDetailMap.value = {}
+  }
+)
 
 const validateLevelPayload = (payload: LevelsData): string => {
   return validateFixedLevels(normalizeLevels(payload.levels || []))
