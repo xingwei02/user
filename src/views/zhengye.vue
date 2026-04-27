@@ -974,7 +974,7 @@
                               <th>订单号</th>
                               <th>商品名称</th>
                               <th>原价/实付</th>
-                              <th>伙伴佣金/我的佣金/上级成本</th>
+                              <th>伙伴佣金/我的佣金</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -992,7 +992,6 @@
                               <td>
                                 <div>伙伴：¥{{ detail.partner_commission }}</div>
                                 <div class="green">我拿：¥{{ detail.my_commission }}</div>
-                                <div class="text-sm text-orange">上级成本：¥{{ detail.referrer_cost }}</div>
                               </td>
                             </tr>
                             <tr v-if="!(settlementDetailMap[item.id]?.items || []).length && settlementDetailLoadingId !== item.id">
@@ -1117,38 +1116,40 @@
                     <button class="btn btn-default btn-sm" :disabled="!transferableCommissions.items.length || transferringBalance" @click="toggleSelectAllTransferable(false)">反选</button>
                   </div>
                 </div>
-                <table v-if="transferableCommissions.items.length" class="detail-table mb-15">
-                  <thead>
-                    <tr>
-                      <th style="width:56px;">选择</th>
-                      <th>订单号</th>
-                      <th>商品</th>
-                      <th>佣金</th>
-                      <th>可转时间</th>
-                      <th>状态</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="item in transferableCommissions.items" :key="`transferable-${item.id}`">
-                      <td>
-                        <input
-                          type="checkbox"
-                          :checked="selectedTransferCommissionIDs.includes(item.id)"
-                          :disabled="!item.can_transfer || transferringBalance"
-                          @change="toggleTransferCommission(item.id)"
-                        >
-                      </td>
-                      <td>
-                        <div>{{ item.order_no || '-' }}</div>
-                        <div class="text-sm text-gray">佣金ID：{{ item.id }}</div>
-                      </td>
-                      <td>{{ item.product_name || '-' }}</td>
-                      <td class="green">¥{{ item.commission_amount }}</td>
-                      <td>{{ item.available_at || item.created_at || '-' }}</td>
-                      <td><span class="tag" :class="item.can_transfer ? 'green' : 'orange'">{{ item.can_transfer ? '可转余额' : (item.status || '不可转') }}</span></td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div v-if="transferableCommissions.items.length" class="table-wrap table-wrap--compact mb-15">
+                  <table class="detail-table detail-table--settlement">
+                    <thead>
+                      <tr>
+                        <th style="width:56px;">选择</th>
+                        <th>订单号</th>
+                        <th>商品</th>
+                        <th>佣金</th>
+                        <th>可转时间</th>
+                        <th>状态</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in transferableCommissions.items" :key="`transferable-${item.id}`">
+                        <td>
+                          <input
+                            type="checkbox"
+                            :checked="selectedTransferCommissionIDs.includes(item.id)"
+                            :disabled="!item.can_transfer || transferringBalance"
+                            @change="toggleTransferCommission(item.id)"
+                          >
+                        </td>
+                        <td>
+                          <div class="table-primary-text">{{ item.order_no || '-' }}</div>
+                          <div class="text-sm text-gray">佣金ID：{{ item.id }}</div>
+                        </td>
+                        <td>{{ item.product_name || '-' }}</td>
+                        <td class="green table-amount">¥{{ item.commission_amount }}</td>
+                        <td class="table-time">{{ item.available_at || item.created_at || '-' }}</td>
+                        <td><span class="tag" :class="item.can_transfer ? 'green' : 'orange'">{{ item.can_transfer ? '可转余额' : formatTransferStatus(item.status) }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
                 <div v-else class="text-sm text-gray mb-15">暂无可转余额佣金</div>
                 <div class="form-item">
                   <label>转入金额</label>
@@ -1167,29 +1168,31 @@
                   <h3>余额流水</h3>
                   <button class="btn btn-default btn-sm" @click="loadBalanceData">刷新</button>
                 </div>
-                <table class="detail-table">
-                  <thead>
-                    <tr>
-                      <th>时间</th>
-                      <th>类型</th>
-                      <th>变动</th>
-                      <th>变动前 / 后</th>
-                      <th>备注</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="log in balanceLogs.items" :key="`balance-log-${log.id}`">
-                      <td>{{ log.created_at }}</td>
-                      <td>{{ log.type || '-' }}</td>
-                      <td :class="Number(log.amount) >= 0 ? 'green' : 'orange'">{{ Number(log.amount) >= 0 ? '+' : '' }}{{ log.amount }}</td>
-                      <td>{{ log.balance_before }} → {{ log.balance_after }}</td>
-                      <td>{{ log.remark || log.related_type || '-' }}</td>
-                    </tr>
-                    <tr v-if="!balanceLogs.items.length">
-                      <td colspan="5" class="text-center text-gray">暂无余额流水</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div class="table-wrap table-wrap--compact">
+                  <table class="detail-table detail-table--settlement">
+                    <thead>
+                      <tr>
+                        <th>时间</th>
+                        <th>类型</th>
+                        <th>变动</th>
+                        <th>变动前 / 后</th>
+                        <th>备注</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="log in balanceLogs.items" :key="`balance-log-${log.id}`">
+                        <td class="table-time">{{ log.created_at }}</td>
+                        <td>{{ formatBalanceLogType(log.type) }}</td>
+                        <td :class="Number(log.amount) >= 0 ? 'green' : 'orange'" class="table-amount">{{ Number(log.amount) >= 0 ? '+' : '' }}{{ log.amount }}</td>
+                        <td>{{ log.balance_before }} → {{ log.balance_after }}</td>
+                        <td class="table-remark">{{ formatBalanceLogRemark(log) }}</td>
+                      </tr>
+                      <tr v-if="!balanceLogs.items.length">
+                        <td colspan="5" class="text-center text-gray">暂无余额流水</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
@@ -1591,7 +1594,7 @@
                   <td><span class="tag green">{{ item.channel }}</span></td>
                   <td>{{ item.product_name }}</td>
                   <td>¥{{ item.paid_amount }}</td>
-                  <td><span class="tag" :class="item.status.includes('完成') ? 'green' : 'red'">{{ item.status }}</span></td>
+                  <td><span class="tag" :class="orderStatusTagClass(item.status)">{{ formatOrderStatus(item.status) }}</span></td>
                   <td>¥{{ item.partner_commission }}</td>
                   <td class="green">¥{{ item.my_commission }}</td>
                   <td class="orange">¥{{ item.referrer_cost }}</td>
@@ -1727,7 +1730,7 @@
               <div class="detail-modal__item"><span>伙伴渠道</span><strong>{{ selectedOrderDetail.channel }}</strong></div>
               <div class="detail-modal__item"><span>商品</span><strong>{{ selectedOrderDetail.product_name }}</strong></div>
               <div class="detail-modal__item"><span>实付金额</span><strong>¥{{ selectedOrderDetail.paid_amount }}</strong></div>
-              <div class="detail-modal__item"><span>订单状态</span><strong>{{ selectedOrderDetail.status }}</strong></div>
+              <div class="detail-modal__item"><span>订单状态</span><strong>{{ formatOrderStatus(selectedOrderDetail.status) }}</strong></div>
               <div class="detail-modal__item"><span>成交时间</span><strong>{{ selectedOrderDetail.created_at }}</strong></div>
             </div>
             <div class="detail-modal__commission">
@@ -2413,6 +2416,51 @@ const formatMoney = (value?: number | string) => {
 const formatCommissionRole = (role?: string, name?: string) => {
   const roleText = role === 'direct' ? '直接推广者' : role === 'indirect' ? '上级分佣' : role || '分佣角色'
   return name ? `${roleText} · ${name}` : roleText
+}
+
+const formatOrderStatus = (status?: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (!normalized) return '-'
+  if (normalized.includes('refund') || normalized.includes('退款')) return '已退款'
+  if (['available', 'pending', 'processing'].includes(normalized)) return '待结算'
+  if (['completed', 'paid', 'settled', 'success'].includes(normalized)) return '已完成'
+  if (['cancelled', 'canceled', 'closed'].includes(normalized)) return '已关闭'
+  return status || '-'
+}
+
+const orderStatusTagClass = (status?: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (normalized.includes('refund') || normalized.includes('退款')) return 'red'
+  if (['completed', 'paid', 'settled', 'success'].includes(normalized)) return 'green'
+  if (['available', 'pending', 'processing'].includes(normalized)) return 'blue'
+  return 'orange'
+}
+
+const formatTransferStatus = (status?: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (!normalized) return '不可转'
+  if (normalized === 'available') return '待转余额'
+  if (normalized === 'transferred') return '已转余额'
+  if (normalized === 'withdrawn') return '已提现'
+  if (normalized === 'paid') return '已打款'
+  if (normalized === 'settled') return '已结算'
+  return status || '不可转'
+}
+
+const formatBalanceLogType = (type?: string) => {
+  const normalized = String(type || '').trim().toLowerCase()
+  if (!normalized) return '-'
+  if (normalized.includes('commission')) return '佣金变动'
+  if (normalized.includes('withdraw')) return '提现变动'
+  if (normalized.includes('transfer')) return '转余额'
+  if (normalized.includes('refund')) return '退款回退'
+  return type || '-'
+}
+
+const formatBalanceLogRemark = (log: BalanceLogItem) => {
+  if (String(log.remark || '').trim()) return log.remark
+  if (String(log.related_type || '').trim()) return `${log.related_type}${log.related_id ? ` #${log.related_id}` : ''}`
+  return '-'
 }
 
 const isPositiveCommissionStatus = (status?: string) => ['available', 'withdrawn', 'paid', 'settled'].includes(String(status || '').toLowerCase())
@@ -4471,6 +4519,96 @@ body {
   color: #111827;
 }
 
+.detail-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e9edf3;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.table-wrap--compact {
+  box-shadow: inset 0 0 0 1px rgba(233, 237, 243, 0.45);
+}
+
+.detail-table,
+.breakdown-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.detail-table th,
+.detail-table td,
+.breakdown-table th,
+.breakdown-table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.detail-table thead th,
+.breakdown-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fbff;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.detail-table tbody tr:hover,
+.breakdown-table tbody tr:hover {
+  background: #fafcff;
+}
+
+.detail-table tbody tr:last-child td,
+.breakdown-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.detail-table--settlement th:nth-child(1) { width: 64px; }
+.detail-table--settlement th:nth-child(2) { width: 20%; }
+.detail-table--settlement th:nth-child(3) { width: 18%; }
+.detail-table--settlement th:nth-child(4) { width: 14%; }
+.detail-table--settlement th:nth-child(5) { width: 22%; }
+.detail-table--settlement th:nth-child(6) { width: 14%; }
+
+.table-primary-text {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.table-time {
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.table-amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.table-remark {
+  color: #4b5563;
+}
+
 .detail-modal-overlay {
   position: fixed;
   inset: 0;
@@ -4536,6 +4674,15 @@ body {
   .partner-detail-grid,
   .detail-modal__grid {
     grid-template-columns: 1fr;
+  }
+
+  .detail-toolbar {
+    align-items: flex-start;
+  }
+
+  .detail-table,
+  .breakdown-table {
+    min-width: 640px;
   }
 }
 
