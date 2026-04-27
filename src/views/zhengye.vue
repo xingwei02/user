@@ -599,7 +599,7 @@
               <div class="levels-empty-icon">🏗️</div>
               <h4>还没有设置档位</h4>
               <p>设好档位后，伙伴卖得越多就会自动升级，赚得更多。</p>
-              <button class="btn btn-primary empty-add-btn" @click="insertLevel(0, 'below')">+ 加我的第一档</button>
+              <button class="btn btn-primary empty-add-btn" @click="openLevelEditor(localLevels.find(item => item.slot === 'entry')?.id || localLevels[0]?.id || 0)">去设置入门档</button>
             </div>
 
             <template v-else>
@@ -608,17 +608,13 @@
 
                 <div class="level-list">
                   <div
-                    v-for="(lv, index) in localLevels"
+                    v-for="lv in localLevels"
                     :key="lv.id"
                     class="level-item"
                     :class="[getLevelTheme(lv).className, { active: editingLevelId === lv.id, 'has-actions': hoveredLevelId === lv.id || editingLevelId === lv.id }]"
                     :style="getLevelCardStyle(lv)"
-                    draggable="true"
                     @mouseenter="hoveredLevelId = lv.id"
                     @mouseleave="hoveredLevelId = null"
-                    @dragstart="onLevelDragStart(index)"
-                    @dragover.prevent
-                    @drop="onLevelDrop(index)"
                   >
                     <div class="level-glow" :style="{ background: getLevelTheme(lv).glow }"></div>
                     <div class="level-rank-chip" :style="getLevelChipStyle(lv)">
@@ -626,10 +622,7 @@
                     </div>
 
                     <div v-if="hoveredLevelId === lv.id || editingLevelId === lv.id" class="level-actions" @click.stop>
-                      <button class="action-chip" @click="insertLevel(index, 'above')">↑ 上方插入</button>
                       <button class="action-chip action-chip-active" @click="openLevelEditor(lv.id)">编辑此档</button>
-                      <button class="action-chip" @click="insertLevel(index, 'below')">↓ 下方插入</button>
-                      <button v-if="localLevels.length > 1" class="action-chip action-chip-danger" @click="removeLevel(lv.id)">删除</button>
                     </div>
 
                     <div class="level-main" @click="openLevelEditor(lv.id)">
@@ -674,7 +667,7 @@
                 </div>
               </div>
 
-              <p class="level-tip">点任意一档可编辑；悬停显示「上方插入 / 下方插入 / 编辑」</p>
+              <p class="level-tip">固定三档展示：最高档 / 中间档 / 入门档。只允许改内容，不允许改位置。</p>
               <div class="team-total-line">你的团队总共 {{ levelPartnerCount }} 人 · 已有 {{ localLevels.length }} 档</div>
             </template>
 
@@ -684,6 +677,13 @@
               <div class="editor-section">
                 <label>1. 给这个档位起个名字</label>
                 <input v-model="editorForm.name" type="text" class="editor-input" placeholder="比如 铜牌 / 银牌 / 金牌">
+              </div>
+
+              <div v-if="currentEditLevel && currentEditLevel.slot !== 'entry'" class="editor-section">
+                <label>
+                  <input v-model="editorForm.enabled" type="checkbox">
+                  启用这一档（不勾选则保存时不进入实际三档顺序）
+                </label>
               </div>
 
               <div class="editor-section">
@@ -697,8 +697,8 @@
 
               <div class="entry-check">
                 <label>
-                  <input v-model="editorForm.isEntry" type="checkbox">
-                  设为入门档（新人默认从这里开始）
+                  <input v-model="editorForm.isEntry" type="checkbox" disabled>
+                  {{ currentEditLevel?.slot === 'entry' ? '这是固定入门档（新人默认从这里开始）' : '这不是入门档，位置固定不可改' }}
                 </label>
               </div>
 
@@ -744,8 +744,7 @@
               </div>
 
               <div class="editor-footer">
-                <button v-if="currentEditLevel && localLevels.length > 1" type="button" class="btn btn-danger-outline" @click="removeLevel(currentEditLevel.id)">删除这一级</button>
-                <div v-else></div>
+                <div class="text-sm text-gray">固定三档模式下，不支持删除档位或拖拽换位。</div>
                 <div class="editor-footer-right">
                   <button type="button" class="btn btn-default" @click="cancelEditLevel">取消</button>
                   <button type="button" class="btn btn-primary" @click="saveCurrentLevel">{{ savingLevels ? '保存中...' : '保存这一档' }}</button>
@@ -2128,6 +2127,8 @@ type LevelItem = {
   upgrade_condition: LevelUpgradeCondition
   style: string
   rule?: LevelRule
+  slot?: 'top' | 'middle' | 'entry'
+  enabled?: boolean
 }
 
 type LevelGroup = {
@@ -2152,6 +2153,7 @@ type LevelsData = {
 }
 
 type EditorForm = {
+  enabled: boolean
   name: string
   rate: number
   isEntry: boolean
@@ -2275,8 +2277,8 @@ const selectedLevelTab = ref<'all' | number>('all')
 const editingLevelId = ref<number | null>(null)
 const hoveredLevelId = ref<number | null>(null)
 const localLevels = ref<LevelItem[]>([])
-const draggedLevelIndex = ref<number | null>(null)
 const editorForm = ref<EditorForm>({
+  enabled: true,
   name: '',
   rate: 0,
   isEntry: false,
@@ -2319,8 +2321,11 @@ const settlementKeyword = ref('')
 const orderKeyword = ref('')
 const orderStatus = ref('全部')
 const orderSource = ref('全部')
-const iconByIndex = ['🥉', '🏅', '💎', '🏆', '🎖']
-const styleByIndex = ['active', 'gray', 'yellow', 'blue', 'purple']
+const fixedSlotMeta: Record<'top' | 'middle' | 'entry', { label: string; defaultName: string; icon: string; style: string }> = {
+  top: { label: '最高档', defaultName: '最高档', icon: '💎', style: 'yellow' },
+  middle: { label: '中间档', defaultName: '中间档', icon: '🏅', style: 'gray' },
+  entry: { label: '入门档', defaultName: '入门档', icon: '🥉', style: 'active' },
+}
 
 const bronzeTheme: LevelTheme = {
   className: 'theme-bronze',
@@ -2617,8 +2622,10 @@ const withdrawActualPreview = computed(() => {
   return Math.max(0, amount - fee).toFixed(2)
 })
 
-const getLevelTheme = (level: Pick<LevelItem, 'style' | 'is_entry'>): LevelTheme => {
-  if (level.is_entry) return bronzeTheme
+const getLevelTheme = (level: Pick<LevelItem, 'style' | 'is_entry' | 'slot'>): LevelTheme => {
+  if (level.slot === 'entry' || level.is_entry) return bronzeTheme
+  if (level.slot === 'top') return themeByStyle.yellow ?? defaultLevelTheme
+  if (level.slot === 'middle') return silverTheme
   return themeByStyle[level.style || 'gray'] ?? defaultLevelTheme
 }
 
@@ -2676,22 +2683,109 @@ const normalizeRule = (level: any): LevelRule => {
   }
 }
 
-const normalizeLevels = (list: any[] = []) =>
-  list.map((item, index, arr) => ({
-    ...item,
-    icon: item.icon || iconByIndex[Math.min(arr.length - 1 - index, iconByIndex.length - 1)] || '🏅',
-    style: item.style || styleByIndex[Math.min(arr.length - 1 - index, styleByIndex.length - 1)] || 'gray',
-    rule: normalizeRule(item),
-  }))
+const createFixedLevelSlot = (slot: 'top' | 'middle' | 'entry', source?: Partial<LevelItem>): LevelItem => {
+  const meta = fixedSlotMeta[slot]
+  const enabled = slot === 'entry'
+    ? true
+    : Boolean(
+        source?.enabled
+        ?? (String(source?.name || '').trim() && Number(source?.rate || 0) > 0)
+      )
+
+  return {
+    id: Number(source?.id || (slot === 'top' ? 900001 : slot === 'middle' ? 900002 : 900003)),
+    name: String(source?.name || meta.defaultName),
+    icon: String(source?.icon || meta.icon),
+    rate: Number(source?.rate || 0),
+    member_count: Number(source?.member_count || 0),
+    is_entry: slot === 'entry',
+    upgrade_condition: slot === 'entry' ? null : (source?.upgrade_condition as LevelUpgradeCondition) ?? null,
+    style: String(source?.style || meta.style),
+    rule: slot === 'entry'
+      ? {
+          enabled: false,
+          metric: 'sales',
+          period: 'daily',
+          targetValue: 0,
+          consecutiveDays: 0,
+        }
+      : normalizeRule(source),
+    slot,
+    enabled,
+  }
+}
+
+const normalizeLevels = (list: any[] = []) => {
+  const rawLevels = Array.isArray(list) ? list : []
+  const entrySource = rawLevels.find(item => Boolean(item?.is_entry)) || rawLevels[0]
+  const nonEntryLevels = rawLevels
+    .filter(item => item && item !== entrySource && !item.is_entry)
+    .sort((a, b) => Number(a?.rate || 0) - Number(b?.rate || 0))
+
+  const middleSource = nonEntryLevels[0]
+  const topSource = nonEntryLevels[1]
+
+  return [
+    createFixedLevelSlot('top', topSource),
+    createFixedLevelSlot('middle', middleSource),
+    createFixedLevelSlot('entry', entrySource),
+  ]
+}
+
+const buildSaveLevels = (list: LevelItem[] = localLevels.value) => {
+  const slotMap = list.reduce<Record<string, LevelItem>>((acc, item) => {
+    if (item?.slot) acc[item.slot] = item
+    return acc
+  }, {})
+
+  const entryLevel = createFixedLevelSlot('entry', slotMap.entry)
+  const middleLevel = createFixedLevelSlot('middle', slotMap.middle)
+  const topLevel = createFixedLevelSlot('top', slotMap.top)
+
+  const ordered = [entryLevel]
+  if (middleLevel.enabled) ordered.push(middleLevel)
+  if (topLevel.enabled) ordered.push(topLevel)
+  return ordered
+}
+
+const validateFixedLevels = (list: LevelItem[]): string => {
+  const ordered = buildSaveLevels(list)
+  const myRate = Number(currentCommissionRate.value || levels.value.my_rate || 0)
+  if (!canConfigureLevels.value || myRate <= 0) return levelBlockReason.value
+
+  const entryLevel = ordered[0]
+  if (!entryLevel || !entryLevel.is_entry) return '入门档不能为空，且必须作为最低档保存'
+  if (!String(entryLevel.name || '').trim()) return '入门档名称不能为空'
+  if (Number(entryLevel.rate || 0) <= 0) return '入门档返佣必须大于 0'
+  if (Number(entryLevel.rate || 0) >= myRate) return `入门档返佣必须小于你自己的 ¥${formatMoney(myRate)} / ¥100`
+
+  let previousRate = Number(entryLevel.rate || 0)
+  for (let index = 1; index < ordered.length; index += 1) {
+    const item = ordered[index]
+    if (!item) continue
+    const rate = Number(item.rate || 0)
+    const roleName = item.slot === 'middle' ? '中间档' : '最高档'
+    if (!String(item.name || '').trim()) return `${roleName}名称不能为空`
+    if (rate <= previousRate) return `${roleName}返佣必须大于前一档，保持 入门档 < 中间档 < 最高档`
+    if (rate >= myRate) return `${roleName}返佣必须小于你自己的 ¥${formatMoney(myRate)} / ¥100`
+
+    const rule = normalizeRule(item)
+    if (!rule.enabled) return `${roleName}必须设置升级条件`
+    if (Number(rule.targetValue || 0) <= 0) return `${roleName}升级目标必须大于 0`
+    if (Number(rule.consecutiveDays || 0) <= 0) return `${roleName}连续天数必须大于 0`
+    previousRate = rate
+  }
+
+  return ''
+}
 
 watch(
   () => levels.value,
   value => {
     localLevels.value = normalizeLevels(value?.levels || [])
-    if (!localLevels.value.length) return
     if (!editingLevelId.value || !localLevels.value.some(item => item.id === editingLevelId.value)) {
-      const lastLevel = localLevels.value[localLevels.value.length - 1]
-      if (lastLevel) beginEditLevel(lastLevel.id)
+      const entryLevel = localLevels.value.find(item => item.slot === 'entry') || localLevels.value[0]
+      if (entryLevel) beginEditLevel(entryLevel.id)
     }
   },
   { immediate: true, deep: true }
@@ -3064,6 +3158,7 @@ watch(
 
 const syncEditorForm = (lv: LevelItem) => {
   editorForm.value = {
+    enabled: lv.slot === 'entry' ? true : Boolean(lv.enabled),
     name: lv.name,
     rate: lv.rate,
     isEntry: lv.is_entry,
@@ -3087,101 +3182,8 @@ const cancelEditLevel = () => {
   hoveredLevelId.value = null
 }
 
-const createBlankLevel = (): LevelItem => ({
-  id: Date.now(),
-  name: '新档位',
-  icon: '🏅',
-  rate: 0,
-  member_count: 0,
-  is_entry: false,
-  upgrade_condition: null,
-  style: 'gray',
-  rule: {
-    enabled: true,
-    metric: 'sales',
-    period: 'daily',
-    targetValue: 0,
-    consecutiveDays: 3,
-  },
-})
-
-const refreshDecorations = () => {
-  localLevels.value = localLevels.value.map((item, index, arr) => ({
-    ...item,
-    icon: iconByIndex[Math.min(arr.length - 1 - index, iconByIndex.length - 1)] || item.icon,
-    style: styleByIndex[Math.min(arr.length - 1 - index, styleByIndex.length - 1)] || item.style,
-  }))
-}
-
-const insertLevel = (index: number, position: 'above' | 'below') => {
-  if (localLevels.value.length >= 3) {
-    window.alert('最多只能设置 3 个档位')
-    return
-  }
-  const target = position === 'above' ? index : index + 1
-  localLevels.value.splice(target, 0, createBlankLevel())
-  refreshDecorations()
-  const insertedLevel = localLevels.value[target]
-  if (insertedLevel) beginEditLevel(insertedLevel.id)
-}
-
-const removeLevel = (id: number) => {
-  const idx = localLevels.value.findIndex(item => item.id === id)
-  if (idx < 0 || localLevels.value.length <= 1) return
-  if (hoveredLevelId.value === id) hoveredLevelId.value = null
-  localLevels.value.splice(idx, 1)
-
-  if (!localLevels.value.some(item => item.is_entry)) {
-    const last = localLevels.value[localLevels.value.length - 1]
-    if (last) {
-      last.is_entry = true
-      last.rule = {
-        ...normalizeRule(last),
-        enabled: false,
-      }
-      last.upgrade_condition = null
-    }
-  }
-
-  refreshDecorations()
-  const fallbackLevel = localLevels.value[Math.max(0, idx - 1)]
-  if (fallbackLevel) beginEditLevel(fallbackLevel.id)
-  refreshDecorations()
-}
-
 const validateLevelPayload = (payload: LevelsData): string => {
-  const list = payload.levels || []
-  const myRate = Number(currentCommissionRate.value || payload.my_rate || 0)
-  if (!canConfigureLevels.value || myRate <= 0) return levelBlockReason.value
-  if (list.length === 0 || list.length > 3) return '最多设置 3 个等级，且至少设置 1 个'
-
-  let entryCount = 0
-  let previousRate = 0
-  for (let index = 0; index < list.length; index += 1) {
-    const item = list[index]
-    if (!item) return '等级数据异常，请刷新后重试'
-    const rate = Number(item.rate || 0)
-    if (!String(item.name || '').trim()) return '等级名称不能为空'
-    if (rate <= 0) return '等级返佣必须大于 0'
-    if (rate >= myRate) return `等级返佣必须小于你自己的 ¥${formatMoney(myRate)} / ¥100`
-    if (index > 0 && rate <= previousRate) return `第${index + 1}档必须大于第${index}档，档位要一档比一档高，例如：10、15、19`
-
-    if (item.is_entry) entryCount += 1
-    if (index === 0 && !item.is_entry) return '最低档必须是入门档'
-    if (index > 0 && item.is_entry) return '只有最低档可以是入门档'
-
-    if (!item.is_entry) {
-      const rule = normalizeRule(item)
-      if (!rule.enabled) return '非入门档必须设置升级条件'
-      if (Number(rule.consecutiveDays || 0) <= 0) return '连续天数必须大于 0'
-      if (Number(rule.targetValue || 0) <= 0) return '非入门档必须设置大于 0 的销售额或订单数目标'
-    }
-
-    previousRate = rate
-  }
-
-  if (entryCount !== 1) return '必须有且只有一个入门档'
-  return ''
+  return validateFixedLevels(normalizeLevels(payload.levels || []))
 }
 
 const handleLevelsSave = async (payload: LevelsData) => {
@@ -3202,25 +3204,6 @@ const handleLevelsSave = async (payload: LevelsData) => {
   } finally {
     savingLevels.value = false
   }
-}
-
-const onLevelDragStart = (index: number) => {
-  draggedLevelIndex.value = index
-}
-
-const onLevelDrop = (index: number) => {
-  if (draggedLevelIndex.value === null || draggedLevelIndex.value === index) return
-
-  const movedItem = localLevels.value.splice(draggedLevelIndex.value, 1)[0]
-  if (!movedItem) {
-    draggedLevelIndex.value = null
-    return
-  }
-
-  localLevels.value.splice(index, 0, movedItem)
-  draggedLevelIndex.value = null
-  refreshDecorations()
-  beginEditLevel(movedItem.id)
 }
 
 const saveContactInfo = async () => {
@@ -3306,15 +3289,58 @@ const saveCurrentLevel = async () => {
   }
   if (!currentEditLevel.value) return
 
+  const slotName = currentEditLevel.value.slot === 'top'
+    ? '最高档'
+    : currentEditLevel.value.slot === 'middle'
+      ? '中间档'
+      : '入门档'
+
+  if (currentEditLevel.value.slot !== 'entry' && !editorForm.value.enabled) {
+    localLevels.value = localLevels.value.map(item => item.id === currentEditLevel.value?.id
+      ? {
+          ...item,
+          enabled: false,
+          name: editorForm.value.name?.trim() || fixedSlotMeta[item.slot || 'middle'].defaultName,
+          rate: Number(editorForm.value.rate || 0),
+          is_entry: false,
+          rule: {
+            ...normalizeRule(item),
+            enabled: false,
+          },
+          upgrade_condition: null,
+        }
+      : item)
+
+    await handleLevelsSave({
+      ...levels.value,
+      entry_rate: buildSaveLevels(localLevels.value)[0]?.rate || levels.value?.entry_rate || 0,
+      levels: buildSaveLevels(localLevels.value).map(item => ({
+        ...item,
+        rule: { ...normalizeRule(item) },
+        upgrade_condition: item.is_entry
+          ? null
+          : {
+              days: Number(normalizeRule(item).consecutiveDays || 0),
+              daily_amount: normalizeRule(item).metric === 'sales' ? Number(normalizeRule(item).targetValue || 0) : 0,
+              orders: normalizeRule(item).metric === 'orders' ? Number(normalizeRule(item).targetValue || 0) : 0,
+              metric_type: normalizeRule(item).metric || 'sales',
+              period_type: normalizeRule(item).period || 'daily',
+            },
+      })),
+      team_by_level: levels.value?.team_by_level || [],
+    })
+    return
+  }
+
   if (!editorForm.value.name?.trim()) {
-    window.alert('请先填写档位名称')
+    window.alert(`请先填写${slotName}名称`)
     return
   }
 
   const editingRate = Number(editorForm.value.rate || 0)
   const myRate = Number(currentCommissionRate.value || 0)
   if (editingRate <= 0) {
-    window.alert('返佣金额必须大于 0')
+    window.alert(`${slotName}返佣金额必须大于 0`)
     return
   }
 
@@ -3340,7 +3366,7 @@ const saveCurrentLevel = async () => {
 
   localLevels.value = localLevels.value.map(item => {
     if (item.id !== currentEditLevel.value?.id) {
-      return editorForm.value.isEntry ? { ...item, is_entry: false } : item
+      return item
     }
 
     const nextRule: LevelRule = editorForm.value.isEntry
@@ -3358,11 +3384,12 @@ const saveCurrentLevel = async () => {
 
     return {
       ...item,
+      enabled: item.slot === 'entry' ? true : Boolean(editorForm.value.enabled),
       name: editorForm.value.name || '未命名档位',
       rate: Number(editorForm.value.rate || 0),
-      is_entry: editorForm.value.isEntry,
+      is_entry: item.slot === 'entry',
       rule: nextRule,
-      upgrade_condition: editorForm.value.isEntry
+      upgrade_condition: item.slot === 'entry'
         ? null
         : {
             days: Number(nextRule.consecutiveDays || 0),
@@ -3373,8 +3400,6 @@ const saveCurrentLevel = async () => {
           },
     }
   })
-
-  refreshDecorations()
 
   const nextTeamByLevel = (levels.value?.team_by_level || []).map(group => {
     const match = localLevels.value.find(level => level.id === group.level_id)
@@ -3388,8 +3413,8 @@ const saveCurrentLevel = async () => {
 
   await handleLevelsSave({
     ...levels.value,
-    entry_rate: localLevels.value.find(item => item.is_entry)?.rate || levels.value?.entry_rate || 0,
-    levels: localLevels.value.map(item => ({
+    entry_rate: buildSaveLevels(localLevels.value)[0]?.rate || levels.value?.entry_rate || 0,
+    levels: buildSaveLevels(localLevels.value).map(item => ({
       ...item,
       rule: { ...normalizeRule(item) },
       upgrade_condition: item.is_entry
