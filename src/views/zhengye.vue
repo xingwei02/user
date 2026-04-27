@@ -2504,6 +2504,7 @@ const trendSegments = computed(() => {
 const currentCommissionRate = computed(() => {
   if (typeof dashboard.value.effective_commission_rate === 'number') return dashboard.value.effective_commission_rate
   if (typeof stats.value.effective_commission_rate === 'number') return stats.value.effective_commission_rate
+  if (typeof levels.value.my_rate === 'number' && levels.value.my_rate > 0) return levels.value.my_rate
   if (typeof stats.value.commission_rate === 'number') return stats.value.commission_rate
   if (typeof dashboard.value.my_commission_rate === 'number') return dashboard.value.my_commission_rate
   if (typeof levels.value.entry_rate === 'number' && levels.value.entry_rate > 0) return levels.value.entry_rate
@@ -2530,18 +2531,21 @@ const levelBlockReason = computed(() => {
 })
 
 const nextUpgradeText = computed(() => {
-  const dashboardUpgrade = String(dashboard.value.upgrade_condition || '').trim()
-  if (dashboardUpgrade) {
-    if (/最高档|无法升级|无上级|最高级/.test(dashboardUpgrade)) return '已出师父'
-    return dashboardUpgrade
-  }
-
   const orderedLevels = (localLevels.value.length ? localLevels.value : levels.value.levels)
     .slice()
     .sort((a, b) => Number(a.rate ?? 0) - Number(b.rate ?? 0))
 
   const currentRate = Number(currentCommissionRate.value ?? 0)
   const nextLevel = orderedLevels.find((level) => Number(level.rate ?? 0) > currentRate)
+
+  const dashboardUpgrade = String(dashboard.value.upgrade_condition || '').trim()
+  if (dashboardUpgrade) {
+    if (/最高档|无法升级|无上级|最高级/.test(dashboardUpgrade)) {
+      return nextLevel ? '' : '已出师父'
+    }
+    return dashboardUpgrade
+  }
+
   if (!nextLevel) return '已出师父'
 
   const rule = normalizeRule(nextLevel)

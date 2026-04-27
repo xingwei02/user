@@ -269,7 +269,6 @@
           <SecurityPanel v-else-if="currentSection === 'security'" />
           <OrdersPanel v-else-if="currentSection === 'orders'" />
           <WalletPanel v-else-if="currentSection === 'wallet'" />
-          <AffiliatePanel v-else-if="currentSection === 'affiliate'" />
           <GiftCardPanel v-else-if="currentSection === 'giftCard'" />
           <ApiPanel v-else-if="currentSection === 'api'" />
           <OrdersPanel v-else />
@@ -283,7 +282,7 @@
 import { computed, onMounted, ref, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { HomeIcon, ShoppingBagIcon, WalletIcon, GiftIcon, ShieldCheckIcon, UserCircleIcon, MegaphoneIcon, KeyIcon } from '@heroicons/vue/24/outline'
+import { HomeIcon, ShoppingBagIcon, WalletIcon, GiftIcon, ShieldCheckIcon, UserCircleIcon, KeyIcon } from '@heroicons/vue/24/outline'
 import { getImageUrl } from '../utils/image'
 import { orderStatusClass, orderStatusLabel } from '../utils/status'
 import { pageAlertClass, type PageAlert } from '../utils/alerts'
@@ -293,10 +292,9 @@ import SecurityPanel from './personal/SecurityPanel.vue'
 import OrdersPanel from './personal/OrdersPanel.vue'
 import WalletPanel from './personal/WalletPanel.vue'
 import GiftCardPanel from './personal/GiftCardPanel.vue'
-import AffiliatePanel from './personal/AffiliatePanel.vue'
 import ApiPanel from './personal/ApiPanel.vue'
 
-type PersonalSection = 'overview' | 'profile' | 'security' | 'orders' | 'wallet' | 'giftCard' | 'affiliate' | 'api'
+type PersonalSection = 'overview' | 'profile' | 'security' | 'orders' | 'wallet' | 'giftCard' | 'api'
 
 const props = withDefaults(defineProps<{ section?: PersonalSection }>(), {
   section: 'overview',
@@ -310,7 +308,6 @@ const sectionItems: Array<{ key: PersonalSection; label: string; icon: Component
   { key: 'overview', label: 'personalCenter.tabs.overview', icon: HomeIcon },
   { key: 'orders', label: 'personalCenter.tabs.orders', icon: ShoppingBagIcon },
   { key: 'wallet', label: 'personalCenter.tabs.wallet', icon: WalletIcon },
-  { key: 'affiliate', label: 'personalCenter.tabs.affiliate', icon: MegaphoneIcon },
   { key: 'giftCard', label: 'personalCenter.tabs.giftCard', icon: GiftIcon },
   { key: 'security', label: 'personalCenter.tabs.security', icon: ShieldCheckIcon },
   { key: 'api', label: 'personalCenter.tabs.api', icon: KeyIcon },
@@ -323,7 +320,6 @@ const sectionRouteMap: Record<PersonalSection, string> = {
   security: '/me/security',
   orders: '/me/orders',
   wallet: '/me/wallet',
-  affiliate: '/me/affiliate',
   giftCard: '/me/gift-cards',
   api: '/me/api',
 }
