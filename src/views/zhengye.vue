@@ -84,9 +84,9 @@
               </div>
               <div class="stat-item highlight">
                 <div class="label">最高可拿</div>
-                <div class="value">{{ formatPercent(dashboard.max_commission_rate) }}</div>
+                <div class="value">{{ formatPercent(highestCommissionRate) }}</div>
               </div>
-              <div v-if="nextUpgradeText" class="tip">下一步怎么升级<br>{{ nextUpgradeText }}</div>
+              <div class="tip">下一步怎么升级<br>{{ nextUpgradeText }}</div>
             </div>
 
             <div class="card">
@@ -1030,15 +1030,15 @@
 
             <div class="grid-4 mb-20">
               <div class="card">
-                <div class="label">可用余额</div>
+                <div class="label">可用佣金</div>
                 <div class="value green">{{ myBalance.balance || '0.00' }}</div>
               </div>
               <div class="card">
-                <div class="label">冻结余额</div>
+                <div class="label">冻结佣金</div>
                 <div class="value orange">{{ myBalance.frozen_balance || '0.00' }}</div>
               </div>
               <div class="card">
-                <div class="label">待结算余额</div>
+                <div class="label">待结算佣金</div>
                 <div class="value">{{ myBalance.pending_balance || '0.00' }}</div>
               </div>
               <div class="card">
@@ -1104,7 +1104,7 @@
 
             <div class="grid-2 mb-20">
               <div class="card" data-mine-section="transfer-box">
-                <h3>佣金转余额</h3>
+                <h3>佣金转钱包余额</h3>
                 <div class="card-header" style="padding:0 0 10px;border:none;display:flex;justify-content:space-between;align-items:center;gap:12px;">
                   <div class="text-sm text-gray">选择“可转余额”的佣金后批量转入余额。</div>
                   <button class="btn btn-default btn-sm" :disabled="transferringBalance" @click="loadBalanceData">刷新佣金</button>
@@ -1157,7 +1157,10 @@
                 </div>
                 <div class="form-item">
                   <label>邮箱验证码（如后端校验开启）</label>
-                  <input v-model="transferForm.verify_code" type="text" placeholder="输入验证码">
+                  <div class="inline-action-field">
+                    <input v-model="transferForm.verify_code" type="text" placeholder="输入验证码">
+                    <button type="button" class="btn btn-default btn-sm inline-action-btn" @click="mockSendVerifyCode('transfer')">发送验证码</button>
+                  </div>
                 </div>
                 <div class="text-sm text-gray mb-10">说明：已转余额的佣金后续退款不自动回滚，按人工处理；未转余额佣金仍由后端退款逻辑处理。</div>
                 <button class="btn btn-primary btn-block" :disabled="transferringBalance || !selectedTransferCommissionIDs.length" @click="handleTransferToBalance">{{ transferringBalance ? '转入中...' : `佣金转余额（${selectedTransferCommissionIDs.length}笔）` }}</button>
@@ -1217,7 +1220,10 @@
                 </div>
                 <div class="form-item">
                   <label>邮箱验证码</label>
-                  <input v-model.trim="withdrawForm.verify_code" type="text" placeholder="请输入邮箱验证码">
+                  <div class="inline-action-field">
+                    <input v-model.trim="withdrawForm.verify_code" type="text" placeholder="请输入邮箱验证码">
+                    <button type="button" class="btn btn-default btn-sm inline-action-btn" @click="mockSendVerifyCode('withdraw')">发送验证码</button>
+                  </div>
                 </div>
                 <div class="preview-box mb-15">
                   <div class="grid-3">
@@ -2422,7 +2428,7 @@ const formatOrderStatus = (status?: string) => {
   const normalized = String(status || '').trim().toLowerCase()
   if (!normalized) return '-'
   if (normalized.includes('refund') || normalized.includes('退款')) return '已退款'
-  if (['available', 'pending', 'processing'].includes(normalized)) return '待结算'
+  if (['available', 'pending', 'processing', 'pending_confirm', 'pending-confirm'].includes(normalized)) return '待结算'
   if (['completed', 'paid', 'settled', 'success'].includes(normalized)) return '已完成'
   if (['cancelled', 'canceled', 'closed'].includes(normalized)) return '已关闭'
   return status || '-'
@@ -2432,7 +2438,7 @@ const orderStatusTagClass = (status?: string) => {
   const normalized = String(status || '').trim().toLowerCase()
   if (normalized.includes('refund') || normalized.includes('退款')) return 'red'
   if (['completed', 'paid', 'settled', 'success'].includes(normalized)) return 'green'
-  if (['available', 'pending', 'processing'].includes(normalized)) return 'blue'
+  if (['available', 'pending', 'processing', 'pending_confirm', 'pending-confirm'].includes(normalized)) return 'blue'
   return 'orange'
 }
 
@@ -2503,6 +2509,14 @@ const currentCommissionRate = computed(() => {
   if (typeof levels.value.entry_rate === 'number' && levels.value.entry_rate > 0) return levels.value.entry_rate
   return 0
 })
+const highestCommissionRate = computed(() => {
+  const levelRates = (localLevels.value.length ? localLevels.value : levels.value.levels || [])
+    .map(item => Number(item?.rate || 0))
+    .filter(rate => rate > 0)
+  const levelMax = levelRates.length ? Math.max(...levelRates) : 0
+  const dashboardMax = Number(dashboard.value.max_commission_rate || 0)
+  return Math.max(levelMax, dashboardMax, Number(currentCommissionRate.value || 0), Number(levels.value.my_rate || 0))
+})
 const canConfigureLevels = computed(() => {
   if (typeof levels.value.can_configure === 'boolean') return levels.value.can_configure
   return Number(currentCommissionRate.value || 0) > 0
@@ -2518,7 +2532,7 @@ const levelBlockReason = computed(() => {
 const nextUpgradeText = computed(() => {
   const dashboardUpgrade = String(dashboard.value.upgrade_condition || '').trim()
   if (dashboardUpgrade) {
-    if (/最高档|无法升级|无上级/.test(dashboardUpgrade)) return ''
+    if (/最高档|无法升级|无上级|最高级/.test(dashboardUpgrade)) return '已出师父'
     return dashboardUpgrade
   }
 
@@ -2528,7 +2542,7 @@ const nextUpgradeText = computed(() => {
 
   const currentRate = Number(currentCommissionRate.value ?? 0)
   const nextLevel = orderedLevels.find((level) => Number(level.rate ?? 0) > currentRate)
-  if (!nextLevel) return ''
+  if (!nextLevel) return '已出师父'
 
   const rule = normalizeRule(nextLevel)
   if (!rule.enabled) {
@@ -2643,7 +2657,8 @@ const filteredOrders = computed(() => {
   const keyword = orderKeyword.value.trim().toLowerCase()
   return orders.value.filter(item => {
     const matchKeyword = !keyword || `${item.order_no} ${item.channel} ${item.product_name}`.toLowerCase().includes(keyword)
-    const matchStatus = orderStatus.value === '全部' || (orderStatus.value === '仅看已退款' ? item.status.includes('退款') : item.status === orderStatus.value)
+    const displayStatus = formatOrderStatus(item.status)
+    const matchStatus = orderStatus.value === '全部' || (orderStatus.value === '仅看已退款' ? displayStatus === '已退款' : displayStatus === orderStatus.value)
     const matchSource = orderSource.value === '全部'
       || (orderSource.value === '我的直销' && item.channel === '我的直销')
       || (orderSource.value === '伙伴渠道' && item.channel !== '我的直销')
@@ -3096,6 +3111,11 @@ const scrollToMineSection = (section: string) => {
   if (el && 'scrollIntoView' in el) {
     ;(el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+}
+
+const mockSendVerifyCode = (scene: 'transfer' | 'withdraw') => {
+  const label = scene === 'transfer' ? '佣金转余额' : '提现申请'
+  window.alert(`${label}验证码发送按钮仅做前端样式占位，当前未接后端发送逻辑。`)
 }
 
 const handleApplyWithdraw = async () => {
@@ -4175,6 +4195,23 @@ body {
 .form-item input:focus,
 .form-item textarea:focus {
   border-color: #007bff;
+}
+.inline-action-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inline-action-field input {
+  flex: 1;
+}
+
+.inline-action-btn {
+  flex-shrink: 0;
+  min-width: 96px;
+  height: 40px;
+  border-radius: 8px;
+  white-space: nowrap;
 }
 .form-tip {
   font-size: 12px;
@@ -5423,6 +5460,15 @@ body {
 }
 
 @media (max-width: 768px) {
+  .inline-action-field {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inline-action-btn {
+    width: 100%;
+  }
+
   .levels-board {
     gap: 12px;
     padding-left: 30px;
