@@ -2418,7 +2418,16 @@ const orderStatusTagClass = (status?: string) => {
   return 'orange'
 }
 
-
+const formatBalanceLogType = (type?: string) => {
+  const typeMap: Record<string, string> = {
+    'commission_transfer': '佣金转入',
+    'withdraw_apply': '提现申请',
+    'withdraw_reject': '提现驳回',
+    'withdraw_complete': '提现完成',
+    'admin_adjust': '管理员调整',
+  }
+  return typeMap[String(type || '').trim()] || type || '-'
+}
 
 const formatBalanceLogRemark = (log: BalanceLogItem) => {
   if (String(log.remark || '').trim()) return log.remark
