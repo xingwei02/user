@@ -2418,26 +2418,7 @@ const orderStatusTagClass = (status?: string) => {
   return 'orange'
 }
 
-const formatTransferStatus = (status?: string) => {
-  const normalized = String(status || '').trim().toLowerCase()
-  if (!normalized) return '不可转'
-  if (normalized === 'available') return '待转余额'
-  if (normalized === 'transferred') return '已转余额'
-  if (normalized === 'withdrawn') return '已提现'
-  if (normalized === 'paid') return '已打款'
-  if (normalized === 'settled') return '已结算'
-  return status || '不可转'
-}
 
-const formatBalanceLogType = (type?: string) => {
-  const normalized = String(type || '').trim().toLowerCase()
-  if (!normalized) return '-'
-  if (normalized.includes('commission')) return '佣金变动'
-  if (normalized.includes('withdraw')) return '提现变动'
-  if (normalized.includes('transfer')) return '转余额'
-  if (normalized.includes('refund')) return '退款回退'
-  return type || '-'
-}
 
 const formatBalanceLogRemark = (log: BalanceLogItem) => {
   if (String(log.remark || '').trim()) return log.remark
@@ -2645,14 +2626,6 @@ const filteredOrders = computed(() => {
     return matchKeyword && matchStatus && matchSource
   })
 })
-const selectedTransferCommissionAmount = computed(() =>
-  selectedTransferCommissionIDs.value
-    .reduce((sum, id) => {
-      const matched = transferableCommissions.value.items.find((item: any) => Number(item.id) === Number(id))
-      return sum + Number(matched?.commission_amount || 0)
-    }, 0)
-    .toFixed(2)
-)
 const withdrawFeePreview = computed(() => {
   const amount = Number(withdrawForm.value.amount || 0)
   const feeRate = Number(withdrawSettings.value.fee_rate || 0)
@@ -3019,25 +2992,6 @@ const loadWithdrawData = async () => {
   }
 }
 
-const toggleTransferCommission = (id: number) => {
-  if (!id) return
-  if (selectedTransferCommissionIDs.value.includes(id)) {
-    selectedTransferCommissionIDs.value = selectedTransferCommissionIDs.value.filter(item => item !== id)
-    return
-  }
-  selectedTransferCommissionIDs.value = [...selectedTransferCommissionIDs.value, id]
-}
-
-const toggleSelectAllTransferable = (checked: boolean) => {
-  const allIds = (transferableCommissions.value.items || [])
-    .filter((item: any) => item.can_transfer)
-    .map((item: any) => Number(item.id))
-  if (checked) {
-    selectedTransferCommissionIDs.value = allIds
-    return
-  }
-  selectedTransferCommissionIDs.value = allIds.filter((id: number) => !selectedTransferCommissionIDs.value.includes(id))
-}
 
 const transferAmountInput = ref<number>(0)
 
