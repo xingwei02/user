@@ -124,6 +124,7 @@ type TransferableCommissionData = {
   total: number
   page: number
   page_size: number
+  totalCommission?: string
 }
 type PartnerItem = {
   id: number
@@ -678,25 +679,31 @@ const mapBalanceLogs = (data: any): BalanceLogsData => ({
   page_size: Number(data?.page_size ?? 20),
 })
 
-const mapTransferableCommissions = (data: any): TransferableCommissionData => ({
-  items: Array.isArray(data?.items)
-    ? data.items.map((item: any) => ({
-        id: Number(item.id ?? 0),
-        order_id: Number(item.order_id ?? 0),
-        order_no: item.order_no || '',
-        product_name: item.product_name || '-',
-        commission_amount: formatMoney(item.commission_amount),
-        status: item.status || '',
-        can_transfer: Boolean(item.can_transfer),
-        transferred_to_balance: Boolean(item.transferred_to_balance),
-        available_at: item.available_at || '',
-        created_at: item.created_at || '',
-      }))
-    : [],
-  total: Number(data?.total ?? 0),
-  page: Number(data?.page ?? 1),
-  page_size: Number(data?.page_size ?? 100),
-})
+const mapTransferableCommissions = (data: any): TransferableCommissionData => {
+  const items = Array.isArray(data?.items) ? data.items : []
+  // 计算可转佣金总额（所有 commission_amount 的求和）
+  const totalCommission = items.reduce((sum: number, item: any) => {
+    return sum + Number(item.commission_amount ?? 0)
+  }, 0)
+  return {
+    items: items.map((item: any) => ({
+      id: Number(item.id ?? 0),
+      order_id: Number(item.order_id ?? 0),
+      order_no: item.order_no || '',
+      product_name: item.product_name || '-',
+      commission_amount: formatMoney(item.commission_amount),
+      status: item.status || '',
+      can_transfer: Boolean(item.can_transfer),
+      transferred_to_balance: Boolean(item.transferred_to_balance),
+      available_at: item.available_at || '',
+      created_at: item.created_at || '',
+    })),
+    total: Number(data?.total ?? 0),
+    page: Number(data?.page ?? 1),
+    page_size: Number(data?.page_size ?? 100),
+    totalCommission: formatMoney(totalCommission),
+  }
+}
 
 const mapWithdrawSettings = (data: any): WithdrawSettingsData => ({
   id: Number(data?.id ?? 0),

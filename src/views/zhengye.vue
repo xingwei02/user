@@ -1031,7 +1031,7 @@
             <div class="grid-4 mb-20">
               <div class="card">
                 <div class="label">可用佣金</div>
-                <div class="value green">{{ myBalance.balance || '0.00' }}</div>
+                <div class="value green">¥{{ myBalance.balance || '0.00' }}</div>
               </div>
               <div class="card">
                 <div class="label">冻结佣金</div>
@@ -1115,7 +1115,7 @@
                   <p class="form-tip">当前共有 {{ transferableCommissions.items.length }} 笔可转佣金</p>
                 </div>
                 <div class="form-item">
-                  <label>转入金额</label>
+                  <label>转入金额（从可用佣金转入钱包）</label>
                   <div class="money-input-wrap">
                     <span class="prefix">¥</span>
                     <input 
@@ -1128,7 +1128,7 @@
                       :disabled="transferringBalance"
                     >
                   </div>
-                  <p class="form-tip">金额不能超过可用佣金总额 ¥{{ transferableCommissions.totalCommission || '0.00' }}</p>
+                  <p class="form-tip">可转佣金总额：¥{{ transferableCommissions.totalCommission || '0.00' }}（转入后可在个人中心钱包余额中查看，可用于提现）</p>
                 </div>
                 <div class="form-item">
                   <label>邮箱验证码（金额≥10元时需要）</label>
