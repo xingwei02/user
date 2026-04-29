@@ -1031,7 +1031,8 @@
             <div class="grid-4 mb-20">
               <div class="card">
                 <div class="label">可用佣金</div>
-                <div class="value green">¥{{ myBalance.balance || '0.00' }}</div>
+                <div class="value green">¥{{ transferableCommissions.totalCommission || '0.00' }}</div>
+                <div class="sub">可转入个人中心钱包</div>
               </div>
               <div class="card">
                 <div class="label">冻结佣金</div>
@@ -1106,13 +1107,13 @@
               <div class="card" data-mine-section="transfer-box">
                 <h3>佣金转钱包余额</h3>
                 <div class="card-header" style="padding:0 0 10px;border:none;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                  <div class="text-sm text-gray">输入金额将自动从最早期的佣金中扣除并转入余额。</div>
+                  <div class="text-sm text-gray">输入金额将从已结算可用佣金中扣除，并转入个人中心钱包余额。</div>
                   <button class="btn btn-default btn-sm" :disabled="transferringBalance" @click="loadBalanceData">刷新佣金</button>
                 </div>
                 <div class="form-item">
-                  <label>可转佣金总额</label>
+                  <label>可用佣金</label>
                   <div class="value green" style="font-size: 24px; font-weight: 600;">¥{{ transferableCommissions.totalCommission || '0.00' }}</div>
-                  <p class="form-tip">当前共有 {{ transferableCommissions.items.length }} 笔可转佣金</p>
+                  <p class="form-tip">当前共有 {{ transferableCommissions.items.length }} 笔已结算佣金可转入钱包</p>
                 </div>
                 <div class="form-item">
                   <label>转入金额（从可用佣金转入钱包）</label>
@@ -1128,7 +1129,7 @@
                       :disabled="transferringBalance"
                     >
                   </div>
-                  <p class="form-tip">可转佣金总额：¥{{ transferableCommissions.totalCommission || '0.00' }}（转入后可在个人中心钱包余额中查看，可用于提现）</p>
+                  <p class="form-tip">可用佣金：¥{{ transferableCommissions.totalCommission || '0.00' }}（转入后在个人中心「我的钱包」余额与钱包明细中查看）</p>
                 </div>
                 <div class="form-item">
                   <label>邮箱验证码（金额≥10元时需要）</label>
@@ -1137,8 +1138,8 @@
                     <button type="button" class="btn btn-default btn-sm inline-action-btn" @click="mockSendVerifyCode('transfer')">发送验证码</button>
                   </div>
                 </div>
-                <div class="text-sm text-gray mb-10">说明：已转余额的佣金后续退款不自动回滚，按人工处理；未转余额佣金仍由后端退款逻辑处理。</div>
-                <button class="btn btn-primary btn-block" :disabled="transferringBalance || transferAmountInput <= 0 || transferAmountInput > Number(transferableCommissions.totalCommission || 0)" @click="handleTransferToBalance">{{ transferringBalance ? '转入中...' : '佣金转余额' }}</button>
+                <div class="text-sm text-gray mb-10">说明：佣金转钱包只把已结算可用佣金转入个人中心钱包；不会把待结算佣金提前结算。</div>
+                <button class="btn btn-primary btn-block" :disabled="transferringBalance || transferAmountInput <= 0 || transferAmountInput > Number(transferableCommissions.totalCommission || 0)" @click="handleTransferToBalance">{{ transferringBalance ? '转入中...' : '佣金转钱包' }}</button>
               </div>
 
               <div class="card">
@@ -3011,8 +3012,8 @@ const handleTransferToBalance = async () => {
     return
   }
 
-  // 验证金额不能超过可用佣金
-  const availableAmount = Number(myBalance.value?.balance || 0)
+  // 验证金额不能超过已结算且未转入钱包的可用佣金
+  const availableAmount = Number(transferableCommissions.value?.totalCommission || 0)
   if (amount > availableAmount) {
     window.alert('输入金额超过可用佣金余额')
     return
@@ -3024,7 +3025,7 @@ const handleTransferToBalance = async () => {
       amount,
       verify_code: transferForm.value.verify_code || undefined,
     })
-    window.alert('佣金已提交转余额')
+    window.alert('佣金已成功转入个人中心钱包')
     await loadBalanceData()
     transferAmountInput.value = 0
     transferForm.value = { verify_code: '' }
